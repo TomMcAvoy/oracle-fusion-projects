@@ -1,0 +1,49 @@
+{
+  "name": "oracle-fusion-auth-testing",
+  "version": "1.0.0",
+  "description": "Comprehensive testing suite for Oracle Fusion Authentication System",
+  "main": "test-runner.js",
+  "scripts": {
+    "test": "node test-runner.js",
+    "test:api": "k6 run k6-api-load-test.js",
+    "test:api:quick": "k6 run --vus 10 --duration 10s k6-api-load-test.js",
+    "test:api:medium": "k6 run --vus 50 --duration 30s k6-api-load-test.js",
+    "test:api:stress": "k6 run --vus 200 --duration 60s k6-api-load-test.js",
+    "test:api:peak": "k6 run --vus 500 --duration 120s k6-api-load-test.js",
+    "test:browser": "node playwright-browser-test.js",
+    "test:artillery": "artillery run artillery-load-test.yml",
+    "test:artillery:quick": "artillery quick --count 50 --num 5 http://localhost:8080/auth-web/api/auth/login",
+    "test:all": "npm run test:browser && npm run test:api:quick",
+    "test:health": "curl -s http://localhost:8080/auth-web/api/auth/health | jq",
+    "test:stats": "curl -s http://localhost:8080/auth-web/api/auth/stats | jq",
+    "install:k6": "echo 'Install k6: https://k6.io/docs/get-started/installation/ or brew install k6'",
+    "install:artillery": "npm install -g artillery",
+    "install:playwright": "npx playwright install",
+    "setup": "npm install && npm run install:playwright",
+    "warmup": "node cache-warmup.js",
+    "demo": "echo 'Open http://localhost:8080/auth-web/login.html and try testuser123 / TestPass3!'"
+  },
+  "keywords": [
+    "authentication",
+    "testing",
+    "load-testing",
+    "browser-testing",
+    "k6",
+    "playwright",
+    "ejb",
+    "jakarta-ee"
+  ],
+  "author": "Oracle Fusion Auth Team",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "axios": "^1.6.0",
+    "colors": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

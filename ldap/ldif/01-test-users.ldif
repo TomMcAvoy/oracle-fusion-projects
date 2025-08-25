@@ -1,0 +1,102 @@
+# White Startups Test Users - 1000 Users with Predictable Credentials
+# Password Pattern: Last digit of username maps to known password
+# 
+# Digit 0: TestPass0!
+# Digit 1: TestPass1!  
+# Digit 2: TestPass2!
+# Digit 3: TestPass3!
+# Digit 4: TestPass4!
+# Digit 5: TestPass5!
+# Digit 6: TestPass6!
+# Digit 7: TestPass7!
+# Digit 8: TestPass8!
+# Digit 9: TestPass9!
+
+# Organizational Units
+dn: ou=people,dc=whitestartups,dc=com
+objectClass: organizationalUnit
+ou: people
+description: White Startups Users
+
+dn: ou=groups,dc=whitestartups,dc=com
+objectClass: organizationalUnit
+ou: groups
+description: White Startups Groups
+
+dn: ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalUnit
+ou: departments
+description: White Startups Departments
+
+# Groups
+dn: cn=developers,ou=groups,dc=whitestartups,dc=com
+objectClass: groupOfNames
+cn: developers
+description: Software Developers
+member: uid=admin,dc=whitestartups,dc=com
+
+dn: cn=admins,ou=groups,dc=whitestartups,dc=com
+objectClass: groupOfNames
+cn: admins
+description: System Administrators
+member: uid=admin,dc=whitestartups,dc=com
+
+dn: cn=managers,ou=groups,dc=whitestartups,dc=com
+objectClass: groupOfNames
+cn: managers
+description: Department Managers
+member: uid=admin,dc=whitestartups,dc=com
+
+dn: cn=users,ou=groups,dc=whitestartups,dc=com
+objectClass: groupOfNames
+cn: users
+description: Regular Users
+member: uid=admin,dc=whitestartups,dc=com
+
+# Departments
+dn: cn=engineering,ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalRole
+cn: engineering
+description: Engineering Department
+
+dn: cn=sales,ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalRole
+cn: sales
+description: Sales Department
+
+dn: cn=marketing,ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalRole
+cn: marketing
+description: Marketing Department
+
+dn: cn=hr,ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalRole
+cn: hr
+description: Human Resources Department
+
+dn: cn=finance,ou=departments,dc=whitestartups,dc=com
+objectClass: organizationalRole
+cn: finance
+description: Finance Department
+
+# Admin User
+dn: uid=admin,ou=people,dc=whitestartups,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: admin
+sn: Administrator
+givenName: System
+cn: System Administrator
+displayName: System Administrator
+uidNumber: 1000
+gidNumber: 1000
+userPassword: {SSHA}WhiteStartupsAdmin2024!
+loginShell: /bin/bash
+homeDirectory: /home/admin
+mail: admin@whitestartups.com
+telephoneNumber: +1-555-0001
+employeeNumber: 000001
+departmentNumber: IT
+title: System Administrator
+description: Primary system administrator account

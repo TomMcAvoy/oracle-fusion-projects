@@ -1,0 +1,133 @@
+# Artillery Load Test Configuration for Oracle Fusion Auth
+# 
+# Artillery is an alternative to k6 - easier to install but slightly less feature-rich
+# Install: npm install -g artillery
+# 
+# Usage:
+#   artillery run artillery-load-test.yml
+#   artillery run --target http://localhost:8080 artillery-load-test.yml
+#   artillery quick --count 100 --num 10 http://localhost:8080/auth-web/api/auth/login
+
+config:
+  target: 'http://localhost:8080'
+  phases:
+    # Warm-up phase
+    - duration: 10
+      arrivalRate: 5
+      name: "Warm-up"
+    
+    # Ramp-up phase  
+    - duration: 30
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp-up"
+      
+    # Sustained load
+    - duration: 60
+      arrivalRate: 50
+      name: "Sustained load"
+      
+    # Peak load
+    - duration: 30
+      arrivalRate: 100
+      name: "Peak load"
+      
+    # Cool-down
+    - duration: 20
+      arrivalRate: 10
+      name: "Cool-down"
+
+  # Load test configuration
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  
+  # Performance thresholds
+  ensure:
+    p95: 500                    # 95% of requests under 500ms
+    p99: 1000                   # 99% of requests under 1s
+    maxErrorRate: 5             # Less than 5% error rate
+
+  # Custom variables for test users
+  variables:
+    userIndex:
+      - 0
+      - 111
+      - 222
+      - 333
+      - 444
+      - 555
+      - 666
+      - 777
+      - 888
+      - 999
+      - 123
+      - 456
+      - 789
+      - 50
+      - 151
+      - 252
+
+# Test scenarios
+scenarios:
+  # Main authentication flow
+  - name: "Authentication Load Test"
+    weight: 80
+    flow:
+      # Health check first
+      - get:
+          url: "/auth-web/api/auth/health"
+          expect:
+            - statusCode: 200
+      
+      # Test authentication with random user
+      - function: "selectRandomUser"
+      
+      - post:
+          url: "/auth-web/api/auth/login"
+          json:
+            username: "{{ username }}"
+            password: "{{ password }}"
+          expect:
+            - statusCode: [200, 401]
+          capture:
+            - json: "$.success"
+              as: "authSuccess"
+            - json: "$.responseTimeMs"
+              as: "responseTime"
+            - json: "$.cacheHit"
+              as: "cacheHit"
+      
+      # Log successful authentications
+      - log: "User {{ username }} auth: {{ authSuccess }} ({{ responseTime }}ms, cache: {{ cacheHit }})"
+
+  # High-frequency user pattern (simulates popular accounts)
+  - name: "High-Frequency Users"
+    weight: 15
+    flow:
+      - function: "selectHighFrequencyUser"
+      - post:
+          url: "/auth-web/api/auth/login"
+          json:
+            username: "{{ username }}"
+            password: "{{ password }}"
+
+  # Cache statistics monitoring
+  - name: "Statistics Monitoring" 
+    weight: 5
+    flow:
+      - get:
+          url: "/auth-web/api/auth/stats"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.cacheSize"
+              as: "cacheSize"
+            - json: "$.hitRatio"
+              as: "hitRatio"
+      
+      - log: "Cache stats: size={{ cacheSize }}, hit ratio={{ hitRatio }}"
+
+# Custom JavaScript functions
+config:
+  processor: "./artillery-functions.js"
