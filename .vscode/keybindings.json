@@ -1,0 +1,37 @@
+[
+  {
+    "key": "ctrl+alt+w",
+    "mac": "cmd+alt+w",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Watch & Auto Deploy to WildFly",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+e",
+    "mac": "cmd+alt+e",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Watch (No Deploy/No Test)",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+s",
+    "mac": "cmd+alt+s",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Start WildFly",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+x",
+    "mac": "cmd+alt+x",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Stop WildFly",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+r",
+    "mac": "cmd+alt+r",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Restart WildFly",
+    "when": "editorTextFocus"
+  }
+]

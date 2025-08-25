@@ -160,6 +160,19 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.1.2</version>
                 </plugin>
+                <!-- WildFly Maven Plugin for deployment -->
+                <plugin>
+                    <groupId>org.wildfly.plugins</groupId>
+                    <artifactId>wildfly-maven-plugin</artifactId>
+                    <version>4.3.0.Final</version>
+                    <configuration>
+                        <hostname>localhost</hostname>
+                        <port>9990</port>
+                        <username>${env.WILDFLY_USER}</username>
+                        <password>${env.WILDFLY_PASS}</password>
+                        <filename>${project.build.finalName}.war</filename>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>

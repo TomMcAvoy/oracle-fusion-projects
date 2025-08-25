@@ -1,0 +1,93 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Restart WildFly",
+      "type": "shell",
+      "dependsOn": ["Stop WildFly", "Start WildFly"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Start WildFly",
+      "type": "shell",
+      "command": "bash scripts/shell/wildfly-start.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop WildFly",
+      "type": "shell",
+  "command": "bash scripts/shell/wildfly-stop.sh",
+      "isBackground": false,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Watch & Auto Deploy to WildFly",
+      "type": "shell",
+      "command": "bash scripts/shell/wildfly-watch.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "ENABLE_DEPLOY": "true",
+          "ENABLE_TEST": "true"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Watch (No Deploy/No Test)",
+      "type": "shell",
+      "command": "bash scripts/shell/wildfly-watch.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "ENABLE_DEPLOY": "false",
+          "ENABLE_TEST": "false"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Start WildFly",
+      "type": "shell",
+      "command": "bash scripts/shell/wildfly-start.sh",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Stop WildFly",
+      "type": "shell",
+      "command": "pkill -f 'wildfly.*standalone'",
+      "isBackground": false,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

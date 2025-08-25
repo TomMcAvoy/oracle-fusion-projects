@@ -21,14 +21,15 @@ services:
     volumes:
       - ./vault-config.hcl:/vault/config/vault-config.hcl:ro
       - vault-data:/vault/data
-      - ./setup-oidc.sh:/setup-oidc.sh:ro
+      - ./setup-oidc.sh:/vault/config/setup-oidc.sh:ro
+      - ./test-oidc.sh:/vault/config/test-oidc.sh:ro
     entrypoint:
       - /bin/sh
       - -c
       - |
-        vault server -config=/vault/config/vault-config.hcl &
+        vault server -dev -dev-root-token-id=root -dev-listen-address=0.0.0.0:8200 &
         sleep 5
-        sh /setup-oidc.sh
+        sh /vault/config/setup-oidc.sh
         tail -f /dev/null
 volumes:
   vault-data:
