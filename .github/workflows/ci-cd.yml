@@ -1,3 +1,9 @@
+      - name: Debug before Vault fetch
+        run: |
+          echo "== ENVIRONMENT BEFORE VAULT FETCH =="
+          env
+          ps aux
+          curl -v http://127.0.0.1:8200/v1/sys/health || echo "Vault not reachable"
 # Trigger reload for workflow_dispatch recognition
 name: Build and Deploy to WildFly
 
@@ -28,7 +34,13 @@ jobs:
       - name: Build with Maven
         run: mvn clean install
 
-      - name: Fetch secrets from Vault (OIDC)
+  - name: Fetch secrets from Vault (OIDC)
+      - name: Debug after Vault fetch
+        run: |
+          echo "== ENVIRONMENT AFTER VAULT FETCH =="
+          env
+          ps aux
+          curl -v http://127.0.0.1:8200/v1/sys/health || echo "Vault not reachable"
         uses: hashicorp/vault-action@v2
         with:
           url: http://127.0.0.1:8200
