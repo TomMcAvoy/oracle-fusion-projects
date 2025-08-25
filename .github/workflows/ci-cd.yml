@@ -1,7 +1,7 @@
 
 name: Build and Deploy to WildFly
 
-
+on:
   push:
     branches: [ master ]
   pull_request:
