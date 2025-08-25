@@ -1,20 +1,12 @@
-      - name: Debug before Vault fetch
-        run: |
-          echo "== ENVIRONMENT BEFORE VAULT FETCH =="
-          env
-          ps aux
-          curl -v http://127.0.0.1:8200/v1/sys/health || echo "Vault not reachable"
-# Trigger reload for workflow_dispatch recognition
+
 name: Build and Deploy to WildFly
 
-on:
+
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
-  workflow_dispatch:
-
 jobs:
   build-deploy:
     runs-on: self-hosted
