@@ -58,3 +58,10 @@ build/
 .env.vault
 **/*vault-test-credentials.js
 **/vault-*.env
+
+# 🛡️ Security - Never commit secrets
+.secrets/
+.env.vault
+*.token
+**/glpat-*
+**/ghp_*
