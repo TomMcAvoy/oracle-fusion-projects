@@ -33,7 +33,7 @@ jobs:
   # PHASE 1: BUILD AND TEST WITH ERROR RECOVERY
   # ================================================================
   build-and-test:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     
     services:
@@ -157,7 +157,7 @@ jobs:
   # PHASE 2: WILDFLY DEPLOYMENT SIMULATION WITH ERROR RECOVERY
   # ================================================================
   wildfly-deployment:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: build-and-test
     if: github.event.inputs.skip_deployment != 'true'
     timeout-minutes: 20
@@ -289,7 +289,7 @@ jobs:
   # PHASE 3: PRODUCTION DEPLOYMENT (CONDITIONAL)
   # ================================================================
   production-deploy:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: [build-and-test, wildfly-deployment]
     if: github.ref == 'refs/heads/master' && github.event.inputs.skip_deployment != 'true'
     environment: production
@@ -314,7 +314,7 @@ jobs:
   # PHASE 4: PIPELINE STATUS NOTIFICATION
   # ================================================================
   notify-completion:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: [build-and-test, wildfly-deployment]
     if: always()
     

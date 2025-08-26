@@ -1,8 +1,10 @@
 name: Async Consumer with Circuit Breaker
 
 on:
+  push:
+    branches: [ master ]
   repository_dispatch:
-    types: [async_job_completed, fibonacci-job-completed]
+    types: [async_job_completed, fibonacci_job_completed, fibonacci-job-completed]
   workflow_dispatch:
     inputs:
       action_id:
@@ -21,16 +23,65 @@ jobs:
       should-proceed: ${{ steps.circuit-check.outputs.should-proceed }}
       circuit-reason: ${{ steps.circuit-check.outputs.reason }}
     steps:
+      - name: Parse Repository Dispatch Data
+        id: parse-dispatch
+        run: |
+          echo "🔍 PARSING TRIGGER DATA"
+          echo "====================="
+          echo "Event: ${{ github.event_name }}"
+          
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            echo "📋 Repository Dispatch Event Details:"
+            echo "  Event Type: ${{ github.event.action }}"
+            echo "  Action ID: ${{ github.event.client_payload.action_id }}"
+            echo "  Producer Run ID: ${{ github.event.client_payload.producer_run_id }}"
+            echo "  Producer Status: ${{ github.event.client_payload.producer_status }}"
+            echo "  Auto-triggered: ${{ github.event.client_payload.auto_triggered }}"
+            echo "  Pipeline Phase: ${{ github.event.client_payload.pipeline_phase }}"
+            echo ""
+            
+            # Set action ID from repository dispatch
+            ACTION_ID="${{ github.event.client_payload.action_id }}"
+            echo "action-id=$ACTION_ID" >> $GITHUB_OUTPUT
+            echo "trigger-type=auto" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "📋 Manual Workflow Dispatch:"
+            echo "  Action ID: ${{ github.event.inputs.action_id }}"
+            echo "  Skip Circuit Breaker: ${{ github.event.inputs.skip_circuit_breaker }}"
+            echo ""
+            
+            # Set action ID from manual input
+            ACTION_ID="${{ github.event.inputs.action_id }}"
+            echo "action-id=$ACTION_ID" >> $GITHUB_OUTPUT
+            echo "trigger-type=manual" >> $GITHUB_OUTPUT
+          else
+            echo "📋 Push Event Trigger (for testing)"
+            ACTION_ID="push-trigger-${{ github.run_id }}"
+            echo "action-id=$ACTION_ID" >> $GITHUB_OUTPUT
+            echo "trigger-type=push" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "✅ Action ID: $ACTION_ID"
+          echo ""
+
       - name: Circuit Breaker Check
         id: circuit-check
         run: |
           echo "🔒 CIRCUIT BREAKER: Preventing infinite workflow loops"
           
-          # Skip circuit breaker if explicitly requested
+          # Skip circuit breaker if explicitly requested (manual only)
           if [[ "${{ github.event.inputs.skip_circuit_breaker }}" == "true" ]]; then
             echo "⚠️  WARNING: Circuit breaker manually skipped!"
             echo "should-proceed=true" >> $GITHUB_OUTPUT
             echo "reason=manual-override" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Auto-triggered via repository_dispatch should always proceed
+          if [[ "${{ steps.parse-dispatch.outputs.trigger-type }}" == "auto" ]]; then
+            echo "✅ Auto-triggered consumer - proceeding with circuit breaker protection"
+            echo "should-proceed=true" >> $GITHUB_OUTPUT
+            echo "reason=auto-triggered" >> $GITHUB_OUTPUT
             exit 0
           fi
           

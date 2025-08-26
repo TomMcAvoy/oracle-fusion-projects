@@ -50,7 +50,7 @@ jobs:
   # FIBONACCI JOB PUBLISHER
   # ================================
   publish-fibonacci-job:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       action-id: ${{ steps.publish.outputs.action-id }}
       correlation-id: ${{ steps.publish.outputs.correlation-id }}
@@ -306,7 +306,7 @@ jobs:
   # ================================
   non-blocking-demo:
     needs: publish-fibonacci-job
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     steps:
       - name: Show Non-Blocking Behavior
         run: |

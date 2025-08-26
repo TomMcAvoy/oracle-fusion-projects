@@ -17,7 +17,7 @@ env:
 
 jobs:
   build-and-test:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     
     services:
       redis:
@@ -71,7 +71,7 @@ jobs:
         retention-days: 5
         
   security-scan:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: build-and-test
     
     steps:
@@ -95,7 +95,7 @@ jobs:
         retention-days: 30
         
   deploy-staging:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: [build-and-test, security-scan]
     if: github.ref == 'refs/heads/develop'
     
@@ -112,7 +112,7 @@ jobs:
         # Add actual deployment commands here
         
   deploy-production:
-    runs-on: [self-hosted, linux, vault]  
+    runs-on: ubuntu-latest  
     needs: [build-and-test, security-scan]
     if: github.ref == 'refs/heads/master'
     environment: production

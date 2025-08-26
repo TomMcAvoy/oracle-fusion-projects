@@ -1,8 +1,5 @@
 name: Simple Fibonacci Producer
-
 on:
-  push:
-    branches: [ master ]
   workflow_dispatch:
     inputs:
       iterations:
@@ -13,7 +10,7 @@ on:
 
 jobs:
   fibonacci-producer:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,51 +19,45 @@ jobs:
         run: |
           echo "🧮 FIBONACCI PRODUCER STARTING"
           echo "================================"
-          
-          ITERATIONS=${{ github.event.inputs.iterations }}
-          ACTION_ID="fibonacci-producer-${{ github.run_id }}"
-          
           echo "📊 Configuration:"
           echo "  Action ID: $ACTION_ID"
-          echo "  Iterations: $ITERATIONS"
+          echo "  Iterations: ${{ github.event.inputs.iterations || '50' }}"
+          echo "  Trigger: ${{ github.event_name }}"
           echo "  Start Time: $(date -Iseconds)"
-          
-          # Publish Fibonacci job (NO BUILDING/DEPLOYMENT!)
           echo ""
-          echo "📤 PUBLISHING FIBONACCI JOB (Pure Publishing - No WildFly!)"
           
-          # Create Fibonacci job payload
-          FIBONACCI_PAYLOAD=$(jq -n \
+          # Create metadata for other workflows
+          METADATA=$(jq -n \
             --arg action_id "$ACTION_ID" \
-            --arg iterations "$ITERATIONS" \
-            --arg timestamp "$(date -Iseconds)" \
+            --arg iterations "${{ github.event.inputs.iterations || '50' }}" \
+            --arg trigger_type "${{ github.event_name }}" \
+            --arg run_id "${{ github.run_id }}" \
             --arg repository "${{ github.repository }}" \
             --arg actor "${{ github.actor }}" \
             '{
-              operation: "fibonacci",
-              iterations: ($iterations | tonumber),
               action_id: $action_id,
-              timestamp: $timestamp,
+              iterations: $iterations,
+              trigger_type: $trigger_type,
+              run_id: $run_id,
               repository: $repository,
               actor: $actor
-            }')
+            }'
+          )
           
-          echo "📋 Fibonacci Job Payload:"
-          echo "$FIBONACCI_PAYLOAD" | jq '.'
-          
-          # Start background Fibonacci processing (non-blocking)
+          echo "📋 Metadata:"
+          echo "$METADATA" | jq .
           echo ""
-          echo "🚀 STARTING BACKGROUND FIBONACCI PROCESSING"
           
-          # Simulate background Fibonacci computation
-          nohup bash -c "
-            echo '🧮 Computing $ITERATIONS Fibonacci numbers...' > /tmp/fibonacci-$ACTION_ID.log
-            for i in \$(seq 1 $ITERATIONS); do
-              if [[ \$i -le 2 ]]; then
+          # Start background Fibonacci computation (NON-BLOCKING!)
+          echo "🚀 STARTING BACKGROUND FIBONACCI PROCESSING"
+          bash -c "
+            echo 'Starting Fibonacci computation...' > /tmp/fibonacci-$ACTION_ID.log
+            for i in \$(seq 1 ${{ github.event.inputs.iterations || '50' }}); do
+              if [ \$i -le 2 ]; then
                 fib=1
               else
-                # Simple Fibonacci calculation (for demo)
-                fib=\$(( (\$i - 1) + (\$i - 2) ))
+                # Simple fibonacci calculation
+                fib=\$(( (i - 1) + (i - 2) ))
               fi
               echo \"Fibonacci(\$i) = \$fib\" >> /tmp/fibonacci-$ACTION_ID.log
               sleep 0.1  # Simulate computation time
@@ -86,6 +77,8 @@ jobs:
           echo "🎯 Producer workflow completed in seconds!"
           echo ""
           echo "End Time: $(date -Iseconds)"
+        env:
+          ACTION_ID: fibonacci-producer-${{ github.run_id }}
           
       - name: Demonstrate Non-Blocking Success
         run: |
@@ -107,7 +100,7 @@ jobs:
           
       - name: Auto-Trigger Consumer via Repository Dispatch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
         run: |
           echo ""
           echo "🔔 AUTO-TRIGGERING CONSUMER VIA REPOSITORY DISPATCH"
@@ -115,12 +108,26 @@ jobs:
           
           ACTION_ID="fibonacci-producer-${{ github.run_id }}"
           
+          # Check if dispatch token is available
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "⚠️  DISPATCH_TOKEN secret not set"
+            echo "🔧 Repository dispatch requires a Personal Access Token"
+            echo ""
+            echo "📋 Setup Instructions:"
+            echo "1. Create PAT with 'repo' and 'workflow' scopes"
+            echo "2. Add as repository secret named 'DISPATCH_TOKEN'"
+            echo "3. Settings → Secrets → Actions → New repository secret"
+            echo ""
+            echo "🎯 Skipping auto-trigger (manual consumer trigger needed)"
+            exit 0
+          fi
+          
           # Create repository dispatch payload for consumer
           CONSUMER_PAYLOAD=$(jq -n \
             --arg action_id "$ACTION_ID" \
             --arg producer_run_id "${{ github.run_id }}" \
             --arg producer_status "completed" \
-            --arg iterations "${{ github.event.inputs.iterations }}" \
+            --arg iterations "${{ github.event.inputs.iterations || '50' }}" \
             --arg trigger_time "$(date -Iseconds)" \
             --arg producer_actor "${{ github.actor }}" \
             '{
@@ -152,7 +159,8 @@ jobs:
             echo "🔗 Action ID: $ACTION_ID"
           else
             echo "❌ Failed to dispatch consumer auto-trigger"
-            echo "🔧 Manual consumer trigger may be needed"
+            echo "🔧 Check DISPATCH_TOKEN permissions (needs 'repo' and 'workflow' scopes)"
+            exit 1
           fi
           
           echo ""
@@ -160,26 +168,22 @@ jobs:
           echo "Producer → Repository Dispatch → Consumer"
 
   circuit-breaker-demo:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     needs: fibonacci-producer
     steps:
-      - name: Circuit Breaker Protection Demo
+      - name: Circuit Breaker Pattern Demo
         run: |
-          echo "🔒 CIRCUIT BREAKER PROTECTION"
-          echo "============================="
+          echo "🔄 CIRCUIT BREAKER PATTERN DEMONSTRATION"
+          echo "======================================="
           echo ""
-          echo "✅ This workflow includes circuit breaker protection:"
+          echo "✅ Producer completed successfully"
+          echo "🔧 Circuit breaker: CLOSED (healthy state)"
+          echo "🎯 This job runs because producer succeeded"
           echo ""
-          echo "1. 🕐 Time-based monitoring (10-minute windows)"
-          echo "2. 📊 Run frequency analysis (max 3 runs)"  
-          echo "3. 🚨 Automatic termination (prevents infinite loops)"
-          echo "4. 🔄 Auto-reset after cooldown period"
-          echo "5. 🛠️  Manual override available (for debugging)"
+          echo "📊 In a real system:"
+          echo "  • Monitor producer success/failure rates"
+          echo "  • Open circuit on repeated failures"  
+          echo "  • Provide fallback responses"
+          echo "  • Auto-recovery with half-open state"
           echo ""
-          echo "🎯 INFINITE LOOP PREVENTION: ACTIVE & WORKING"
-          echo ""
-          echo "Current workflow run: ${{ github.run_id }}"
-          echo "Trigger event: ${{ github.event_name }}"
-          echo "Actor: ${{ github.actor }}"
-          echo ""
-          echo "✅ Circuit breaker protection ensures safe operation!"
+          echo "🚀 Circuit Breaker Demo Complete!"

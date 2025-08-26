@@ -75,7 +75,7 @@ jobs:
   # PHASE 1: JOB METADATA GENERATION
   # ================================================================
   generate-job-metadata:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       producer-id: ${{ steps.metadata.outputs.producer-id }}
       correlation-id: ${{ steps.metadata.outputs.correlation-id }}
@@ -222,7 +222,7 @@ jobs:
   # ================================================================
   publish-wildfly-job:
     needs: generate-job-metadata
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       dispatch-status: ${{ steps.dispatch.outputs.status }}
       consumer-trigger-id: ${{ steps.dispatch.outputs.consumer-trigger-id }}
@@ -310,7 +310,7 @@ jobs:
   # ================================================================
   monitor-publication:
     needs: [generate-job-metadata, publish-wildfly-job]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Monitor Publication Status
@@ -358,7 +358,7 @@ jobs:
   # ================================================================
   notify-completion:
     needs: [generate-job-metadata, publish-wildfly-job, monitor-publication]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Producer Completion Notification

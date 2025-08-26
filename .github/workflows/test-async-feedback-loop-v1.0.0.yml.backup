@@ -32,7 +32,7 @@ jobs:
   # TRIGGER PRODUCER
   # ================================
   trigger-producer:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       producer-run-id: ${{ steps.trigger.outputs.producer-run-id }}
     steps:
@@ -77,7 +77,7 @@ jobs:
   # ================================
   wait-for-callback:
     needs: trigger-producer
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     steps:
       - name: Simulate Callback Wait
         run: |
@@ -104,7 +104,7 @@ jobs:
   # ================================
   manual-consumer-test:
     needs: [trigger-producer, wait-for-callback]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: github.event.inputs.test_type == 'manual_consumer'
     steps:
       - name: Find Producer Action ID
@@ -150,7 +150,7 @@ jobs:
   # ================================
   validate-feedback-loop:
     needs: [trigger-producer, wait-for-callback]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Validate Complete Cycle

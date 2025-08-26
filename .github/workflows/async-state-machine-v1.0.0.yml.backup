@@ -34,7 +34,7 @@ jobs:
   # STATE INITIALIZATION
   # ================================
   init-pipeline:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       pipeline-id: ${{ steps.init.outputs.pipeline-id }}
       state-file: ${{ steps.init.outputs.state-file }}
@@ -74,7 +74,7 @@ jobs:
   # ================================
   build-stage:
     needs: init-pipeline
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.execute.outputs.status }}
       escaped: ${{ steps.execute.outputs.escaped }}
@@ -134,7 +134,7 @@ jobs:
 
   secrets-stage:
     needs: init-pipeline
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       status: ${{ steps.execute.outputs.status }}
       escaped: ${{ steps.execute.outputs.escaped }}
@@ -195,7 +195,7 @@ jobs:
   # ================================
   deploy-stage:
     needs: [init-pipeline, build-stage, secrets-stage]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: |
       (needs.build-stage.outputs.status == 'success' || needs.build-stage.outputs.escaped == 'true') &&
       (needs.secrets-stage.outputs.status == 'success' || needs.secrets-stage.outputs.escaped == 'true')
@@ -247,7 +247,7 @@ jobs:
   # ================================
   finalize:
     needs: [init-pipeline, build-stage, secrets-stage, deploy-stage]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Execute Callbacks and Cleanup

@@ -33,7 +33,7 @@ jobs:
   # PHASE 1: CIRCUIT BREAKER PROTECTION
   # ================================================================
   wildfly-circuit-breaker:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       should-proceed: ${{ steps.circuit-check.outputs.should-proceed }}
       circuit-reason: ${{ steps.circuit-check.outputs.reason }}
@@ -225,7 +225,7 @@ jobs:
   # ================================================================
   process-wildfly-job:
     needs: wildfly-circuit-breaker
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     if: needs.wildfly-circuit-breaker.outputs.should-proceed == 'true'
     steps:
@@ -517,7 +517,7 @@ jobs:
   # ================================================================
   send-completion-callback:
     needs: [wildfly-circuit-breaker, process-wildfly-job]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always() && needs.wildfly-circuit-breaker.outputs.should-proceed == 'true'
     steps:
       - name: Send WildFly Completion Callback
@@ -582,7 +582,7 @@ jobs:
   # ================================================================
   notify-completion:
     needs: [wildfly-circuit-breaker, process-wildfly-job]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: WildFly Consumer Completion Notification
@@ -653,7 +653,7 @@ jobs:
   # PHASE 1: CIRCUIT BREAKER PROTECTION
   # ================================================================
   wildfly-circuit-breaker:
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     outputs:
       should-proceed: ${{ steps.circuit-check.outputs.should-proceed }}
       circuit-reason: ${{ steps.circuit-check.outputs.reason }}
@@ -845,7 +845,7 @@ jobs:
   # ================================================================
   process-wildfly-job:
     needs: wildfly-circuit-breaker
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     if: needs.wildfly-circuit-breaker.outputs.should-proceed == 'true'
     steps:
@@ -1137,7 +1137,7 @@ jobs:
   # ================================================================
   send-completion-callback:
     needs: [wildfly-circuit-breaker, process-wildfly-job]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always() && needs.wildfly-circuit-breaker.outputs.should-proceed == 'true'
     steps:
       - name: Send WildFly Completion Callback
@@ -1202,7 +1202,7 @@ jobs:
   # ================================================================
   notify-completion:
     needs: [wildfly-circuit-breaker, process-wildfly-job]
-    runs-on: [self-hosted, linux, vault]
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: WildFly Consumer Completion Notification
