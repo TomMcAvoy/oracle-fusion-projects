@@ -1,0 +1,24 @@
+version: '3.8'
+
+# 🔐 Docker Compose with Vault-backed Environment Variables
+# Usage: ./scripts/vault/vault-env.sh docker-compose -f docker-compose.yml -f docker-compose.vault-env.yml up
+
+services:
+  auth-core:
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USERNAME=${GITHUB_USERNAME}
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - GITLAB_USERNAME=${GITLAB_USERNAME}
+      - VAULT_ENABLED=true
+      
+  auth-cache:
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - VAULT_ENABLED=true
+      
+  auth-web:
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - VAULT_ENABLED=true
