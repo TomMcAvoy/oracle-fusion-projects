@@ -1,6 +1,8 @@
 # Pub/Sub Async Pipeline Template
 # Publisher: GitHub Actions Runner
 # Subscribers: Action scripts that subscribe to action-id patterns
+  push:
+    branches: [ master ]
 # Message Broker: Redis pub/sub with fallback to file-based messaging
 
 name: Pub/Sub Async State Machine

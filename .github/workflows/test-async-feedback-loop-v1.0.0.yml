@@ -1,6 +1,8 @@
 # Complete Async Feedback Loop Test
 # Tests the full producer → processing → consumer cycle
 
+  push:
+    branches: [ master ]
 name: Test Complete Async Feedback Loop
 
 on:

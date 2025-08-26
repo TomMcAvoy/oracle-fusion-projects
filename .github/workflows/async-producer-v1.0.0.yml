@@ -1,6 +1,8 @@
 # Async Producer - Publishes events and starts processing
 # This workflow triggers async processing and exits immediately (non-blocking)
 
+  push:
+    branches: [ master ]
 name: Async Producer Pipeline
 
 on:

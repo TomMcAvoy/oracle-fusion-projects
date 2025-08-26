@@ -1,6 +1,8 @@
 # Fibonacci Producer - Publishes Fibonacci computation jobs
 # This workflow publishes async Fibonacci jobs and exits immediately (non-blocking)
 
+  push:
+    branches: [ master ]
 name: Fibonacci Producer Pipeline
 
 on:

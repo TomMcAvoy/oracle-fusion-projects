@@ -1,6 +1,8 @@
 # Generic Async State Machine CI/CD Template
 # Business logic is externalized to scripts in /scripts directory
 # Each job can escape/timeout independently without blocking the pipeline
+  push:
+    branches: [ master ]
 
 name: Async State Machine Pipeline
 

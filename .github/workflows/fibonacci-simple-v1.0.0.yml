@@ -1,6 +1,8 @@
 name: Simple Fibonacci Producer
 
 on:
+  push:
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       iterations:
