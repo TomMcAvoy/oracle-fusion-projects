@@ -1,0 +1,47 @@
+name: Test Cancellable Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Test duration in seconds'
+        required: false
+        default: '60'
+        type: string
+
+jobs:
+  test-job:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Long Running Process (Cancellable)
+        run: |
+          echo "🧪 TESTING CANCELLATION CAPABILITY"
+          echo "=================================="
+          echo ""
+          echo "⏱️  Duration: ${{ github.event.inputs.duration }} seconds"
+          echo "🛑 You can cancel this workflow at any time"
+          echo "🔄 Loop will check for cancellation every 5 seconds"
+          echo ""
+          
+          DURATION=${{ github.event.inputs.duration }}
+          COUNTER=0
+          
+          while [ $COUNTER -lt $DURATION ]; do
+            echo "⏳ Running... ${COUNTER}s / ${DURATION}s"
+            sleep 5
+            COUNTER=$((COUNTER + 5))
+            
+            # Check if we should exit (GitHub Actions will kill this on cancel)
+            if [ $COUNTER -ge $DURATION ]; then
+              echo "✅ Test completed normally"
+              break
+            fi
+          done
+          
+      - name: Cleanup (Always Runs)
+        if: always()
+        run: |
+          echo "🧹 CLEANUP RUNNING (even if cancelled)"
+          echo "This step runs whether job succeeds, fails, or is cancelled"
+          echo "✅ Cleanup complete"
