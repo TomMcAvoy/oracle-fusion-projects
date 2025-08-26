@@ -1,0 +1,389 @@
+# WildFly Async Producer v3.0.0
+# Publishes WildFly build/deploy jobs to async consumer with circuit breaker protection
+# This is the NON-BLOCKING entry point for WildFly CI-CD operations
+
+name: WildFly Async Producer v3.0.0
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'auth-core/**'
+      - 'auth-cache/**'
+      - 'auth-client/**'
+      - 'auth-web/**'
+      - 'auth-ear/**'
+      - 'pom.xml'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: 'Type of WildFly operation'
+        required: true
+        default: 'full_build_deploy'
+        type: choice
+        options:
+          - full_build_deploy
+          - build_only
+          - test_only
+          - deploy_only
+          - health_check
+          - cache_warmup
+      skip_tests:
+        description: 'Skip unit and integration tests'
+        required: false
+        default: false
+        type: boolean
+      skip_deployment:
+        description: 'Skip WildFly deployment phase'
+        required: false
+        default: false
+        type: boolean
+      force_rebuild:
+        description: 'Force complete rebuild (ignore cache)'
+        required: false
+        default: false
+        type: boolean
+      target_environment:
+        description: 'Target deployment environment'
+        required: false
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      priority:
+        description: 'Job priority level'
+        required: false
+        default: 'normal'
+        type: choice
+        options:
+          - low
+          - normal
+          - high
+          - urgent
+
+env:
+  WILDFLY_PRODUCER_ID: wildfly-producer-${{ github.run_id }}-${{ github.run_attempt }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  # ================================================================
+  # PHASE 1: JOB METADATA GENERATION
+  # ================================================================
+  generate-job-metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      producer-id: ${{ steps.metadata.outputs.producer-id }}
+      correlation-id: ${{ steps.metadata.outputs.correlation-id }}
+      job-payload: ${{ steps.metadata.outputs.job-payload }}
+      estimated-duration: ${{ steps.metadata.outputs.estimated-duration }}
+      circuit-breaker-metadata: ${{ steps.metadata.outputs.circuit-breaker-metadata }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Generate WildFly Job Metadata
+        id: metadata
+        run: |
+          CORRELATION_ID="wildfly-corr-$(date +%s)-${{ github.run_id }}"
+          PRODUCER_ID="${{ env.WILDFLY_PRODUCER_ID }}"
+          
+          # Determine job configuration based on inputs or trigger
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            JOB_TYPE="${{ github.event.inputs.job_type }}"
+            SKIP_TESTS="${{ github.event.inputs.skip_tests }}"
+            SKIP_DEPLOYMENT="${{ github.event.inputs.skip_deployment }}"
+            FORCE_REBUILD="${{ github.event.inputs.force_rebuild }}"
+            TARGET_ENV="${{ github.event.inputs.target_environment }}"
+            PRIORITY="${{ github.event.inputs.priority }}"
+          else
+            # Auto-configure based on trigger
+            JOB_TYPE="full_build_deploy"
+            SKIP_TESTS="false"
+            SKIP_DEPLOYMENT="false"
+            FORCE_REBUILD="false"
+            TARGET_ENV="development"
+            PRIORITY="normal"
+          fi
+          
+          # Estimate processing duration based on job type
+          case "$JOB_TYPE" in
+            "full_build_deploy")
+              ESTIMATED_DURATION="900"  # 15 minutes
+              ;;
+            "build_only")
+              ESTIMATED_DURATION="600"  # 10 minutes
+              ;;
+            "test_only")
+              ESTIMATED_DURATION="300"  # 5 minutes
+              ;;
+            "deploy_only")
+              ESTIMATED_DURATION="180"  # 3 minutes
+              ;;
+            "health_check")
+              ESTIMATED_DURATION="60"   # 1 minute
+              ;;
+            "cache_warmup")
+              ESTIMATED_DURATION="120"  # 2 minutes
+              ;;
+            *)
+              ESTIMATED_DURATION="900"  # Default to 15 minutes
+              ;;
+          esac
+          
+          # Create comprehensive job payload
+          JOB_PAYLOAD=$(jq -n \
+            --arg producer_id "$PRODUCER_ID" \
+            --arg correlation_id "$CORRELATION_ID" \
+            --arg job_type "$JOB_TYPE" \
+            --arg skip_tests "$SKIP_TESTS" \
+            --arg skip_deployment "$SKIP_DEPLOYMENT" \
+            --arg force_rebuild "$FORCE_REBUILD" \
+            --arg target_environment "$TARGET_ENV" \
+            --arg priority "$PRIORITY" \
+            --arg git_ref "${{ github.ref }}" \
+            --arg git_sha "${{ github.sha }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg repository "${{ github.repository }}" \
+            --arg run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" \
+            --arg estimated_duration "$ESTIMATED_DURATION" \
+            --arg callback_enabled "true" \
+            --arg auto_triggered "${{ github.event_name != 'workflow_dispatch' }}" \
+            --arg pipeline_phase "producer" \
+            '{
+              producer_id: $producer_id,
+              correlation_id: $correlation_id,
+              job_type: $job_type,
+              configuration: {
+                skip_tests: ($skip_tests == "true"),
+                skip_deployment: ($skip_deployment == "true"),
+                force_rebuild: ($force_rebuild == "true"),
+                target_environment: $target_environment,
+                priority: $priority
+              },
+              git_context: {
+                ref: $git_ref,
+                sha: $git_sha,
+                actor: $actor,
+                repository: $repository,
+                run_id: $run_id,
+                run_attempt: $run_attempt
+              },
+              processing: {
+                estimated_duration_seconds: ($estimated_duration | tonumber),
+                callback_enabled: ($callback_enabled == "true"),
+                auto_triggered: ($auto_triggered == "true"),
+                pipeline_phase: $pipeline_phase
+              }
+            }')
+          
+          # Circuit breaker metadata for consumer
+          CIRCUIT_BREAKER_METADATA=$(jq -n \
+            --arg event_type "wildfly_job_published" \
+            --arg producer_run_id "${{ github.run_id }}" \
+            --arg producer_status "publishing" \
+            --arg job_type "$JOB_TYPE" \
+            --arg priority "$PRIORITY" \
+            '{
+              event_type: $event_type,
+              producer_run_id: $producer_run_id,
+              producer_status: $producer_status,
+              job_type: $job_type,
+              priority: $priority,
+              timestamp: now
+            }')
+          
+          # Output all metadata
+          echo "producer-id=$PRODUCER_ID" >> $GITHUB_OUTPUT
+          echo "correlation-id=$CORRELATION_ID" >> $GITHUB_OUTPUT
+          echo "estimated-duration=${ESTIMATED_DURATION}s" >> $GITHUB_OUTPUT
+          
+          # Output JSON (GitHub Actions doesn't handle multiline JSON well, so base64 encode)
+          echo "job-payload=$(echo '$JOB_PAYLOAD' | base64 -w 0)" >> $GITHUB_OUTPUT
+          echo "circuit-breaker-metadata=$(echo '$CIRCUIT_BREAKER_METADATA' | base64 -w 0)" >> $GITHUB_OUTPUT
+          
+          echo "📋 WildFly Job Metadata Generated:"
+          echo "  Producer ID: $PRODUCER_ID"
+          echo "  Correlation ID: $CORRELATION_ID"
+          echo "  Job Type: $JOB_TYPE"
+          echo "  Estimated Duration: ${ESTIMATED_DURATION}s"
+          echo "  Target Environment: $TARGET_ENV"
+          echo "  Priority: $PRIORITY"
+          echo "  Skip Tests: $SKIP_TESTS"
+          echo "  Skip Deployment: $SKIP_DEPLOYMENT"
+
+  # ================================================================
+  # PHASE 2: ASYNC JOB PUBLICATION
+  # ================================================================
+  publish-wildfly-job:
+    needs: generate-job-metadata
+    runs-on: ubuntu-latest
+    outputs:
+      dispatch-status: ${{ steps.dispatch.outputs.status }}
+      consumer-trigger-id: ${{ steps.dispatch.outputs.consumer-trigger-id }}
+    steps:
+      - name: Decode Job Payload
+        id: decode
+        run: |
+          JOB_PAYLOAD=$(echo '${{ needs.generate-job-metadata.outputs.job-payload }}' | base64 -d)
+          CIRCUIT_METADATA=$(echo '${{ needs.generate-job-metadata.outputs.circuit-breaker-metadata }}' | base64 -d)
+          
+          echo "📦 Decoded Job Payload:"
+          echo "$JOB_PAYLOAD" | jq '.'
+          echo ""
+          echo "🛡️ Circuit Breaker Metadata:"
+          echo "$CIRCUIT_METADATA" | jq '.'
+          
+          # Store for next step
+          echo "$JOB_PAYLOAD" > /tmp/job_payload.json
+          echo "$CIRCUIT_METADATA" > /tmp/circuit_metadata.json
+
+      - name: Publish WildFly Job to Async Consumer
+        id: dispatch
+        run: |
+          PRODUCER_ID="${{ needs.generate-job-metadata.outputs.producer-id }}"
+          CORRELATION_ID="${{ needs.generate-job-metadata.outputs.correlation-id }}"
+          
+          echo "🚀 PUBLISHING WILDFLY JOB TO ASYNC CONSUMER"
+          echo "==========================================="
+          echo "  Producer ID: $PRODUCER_ID"
+          echo "  Correlation ID: $CORRELATION_ID"
+          echo "  Target: Async Consumer with Circuit Breaker"
+          echo ""
+          
+          # Create repository_dispatch event to trigger async consumer
+          DISPATCH_PAYLOAD=$(jq -n \
+            --argjson job_payload "$(cat /tmp/job_payload.json)" \
+            --argjson circuit_metadata "$(cat /tmp/circuit_metadata.json)" \
+            --arg action_id "$PRODUCER_ID" \
+            --arg correlation_id "$CORRELATION_ID" \
+            --arg producer_run_id "${{ github.run_id }}" \
+            --arg producer_status "published" \
+            --arg auto_triggered "true" \
+            --arg pipeline_phase "consumer_trigger" \
+            '{
+              event_type: "wildfly_job_published",
+              client_payload: {
+                action_id: $action_id,
+                correlation_id: $correlation_id,
+                producer_run_id: $producer_run_id,
+                producer_status: $producer_status,
+                auto_triggered: ($auto_triggered == "true"),
+                pipeline_phase: $pipeline_phase,
+                wildfly_job: $job_payload,
+                circuit_breaker: $circuit_metadata
+              }
+            }')
+          
+          echo "📡 Dispatch Payload:"
+          echo "$DISPATCH_PAYLOAD" | jq '.'
+          echo ""
+          
+          # Send repository_dispatch to trigger async consumer
+          DISPATCH_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${{ env.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d "$DISPATCH_PAYLOAD")
+          
+          CONSUMER_TRIGGER_ID="async-consumer-$(date +%s)"
+          
+          if [[ $? -eq 0 ]]; then
+            echo "✅ Successfully published WildFly job to async consumer"
+            echo "🎯 Consumer will process with circuit breaker protection"
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "consumer-trigger-id=$CONSUMER_TRIGGER_ID" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to publish WildFly job"
+            echo "Response: $DISPATCH_RESPONSE"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "consumer-trigger-id=" >> $GITHUB_OUTPUT
+          fi
+
+  # ================================================================
+  # PHASE 3: PRODUCER STATUS MONITORING
+  # ================================================================
+  monitor-publication:
+    needs: [generate-job-metadata, publish-wildfly-job]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Monitor Publication Status
+        run: |
+          PRODUCER_ID="${{ needs.generate-job-metadata.outputs.producer-id }}"
+          DISPATCH_STATUS="${{ needs.publish-wildfly-job.outputs.dispatch-status }}"
+          CONSUMER_TRIGGER_ID="${{ needs.publish-wildfly-job.outputs.consumer-trigger-id }}"
+          
+          echo "📊 WILDFLY ASYNC PRODUCER MONITORING"
+          echo "===================================="
+          echo "  Producer ID: $PRODUCER_ID"
+          echo "  Dispatch Status: $DISPATCH_STATUS"
+          echo "  Consumer Trigger ID: $CONSUMER_TRIGGER_ID"
+          echo "  Estimated Duration: ${{ needs.generate-job-metadata.outputs.estimated-duration }}"
+          echo ""
+          
+          if [[ "$DISPATCH_STATUS" == "success" ]]; then
+            echo "🎉 WILDFLY JOB PUBLISHED SUCCESSFULLY!"
+            echo "======================================"
+            echo ""
+            echo "✅ Job Published to Async Consumer"
+            echo "🛡️ Circuit Breaker Protection Active"
+            echo "⏱️ Estimated Processing: ${{ needs.generate-job-metadata.outputs.estimated-duration }}"
+            echo "🔄 Consumer will handle WildFly build/deploy"
+            echo ""
+            echo "📋 What happens next:"
+            echo "  1. Async Consumer receives repository_dispatch"
+            echo "  2. Circuit breaker checks for excessive WildFly builds"
+            echo "  3. If allowed, consumer processes WildFly job"
+            echo "  4. Consumer sends completion callback when done"
+            echo ""
+            echo "🎯 Producer job complete - WildFly processing is now async!"
+          else
+            echo "❌ WILDFLY JOB PUBLICATION FAILED"
+            echo "================================="
+            echo ""
+            echo "⚠️ Unable to trigger async consumer"
+            echo "🔧 Fallback: Manual workflow trigger required"
+            echo ""
+            exit 1
+          fi
+
+  # ================================================================
+  # PHASE 4: COMPLETION NOTIFICATION
+  # ================================================================
+  notify-completion:
+    needs: [generate-job-metadata, publish-wildfly-job, monitor-publication]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Producer Completion Notification
+        run: |
+          echo "📢 WILDFLY ASYNC PRODUCER COMPLETE"
+          echo "=================================="
+          echo "🎯 Producer: WildFly Async Producer v3.0.0"
+          echo "⏰ Duration: ~2-3 minutes (async publishing)"
+          echo "🔧 Dispatch Status: ${{ needs.publish-wildfly-job.outputs.dispatch-status }}"
+          echo "📊 Producer Status: ${{ job.status }}"
+          echo ""
+          
+          if [[ "${{ needs.publish-wildfly-job.outputs.dispatch-status }}" == "success" ]]; then
+            echo "🎉 ASYNC WILDFLY PROCESSING INITIATED!"
+            echo "====================================="
+            echo "✅ WildFly job published to async consumer"
+            echo "🛡️ Circuit breaker protection active"
+            echo "⚡ Non-blocking: Producer job complete"
+            echo "🔄 Consumer processing WildFly build/deploy in background"
+            echo ""
+            echo "🚀 Your WildFly authentication system is being processed asynchronously!"
+            echo "   Check the 'Async Consumer with Circuit Breaker' workflow for progress."
+          else
+            echo "⚠️ Async processing failed to start"
+            echo "🛠️ Manual intervention may be required"
+          fi
+          echo ""
+          echo "🎯 WildFly Async Producer v3.0.0 - Mission Complete!"
