@@ -81,7 +81,7 @@ show_workflow_status() {
     # Parse and display runs
     echo "$runs" | jq -r '
         .[] | 
-        if .status == "completed" then
+        (if .status == "completed" then
             if .conclusion == "success" then "✅"
             elif .conclusion == "failure" then "❌"
             elif .conclusion == "cancelled" then "⚠️"
@@ -90,7 +90,7 @@ show_workflow_status() {
         elif .status == "in_progress" then "🏃"
         elif .status == "queued" then "⏳"
         else "❓"
-        end as $icon |
+        end) as $icon |
         
         (.createdAt | fromdateiso8601 | strftime("%H:%M:%S")) as $time |
         (.name | if length > 25 then .[0:22] + "..." else . end) as $short_name |
