@@ -17,9 +17,9 @@ on:
         default: '{"timeout": 300, "retry_attempts": 2, "escape_enabled": true}'
 
 env:
-  PIPELINE_TIMEOUT: ${{ fromJson(github.event.inputs.pipeline_config || '{"timeout": 300}').timeout }}
-  RETRY_ATTEMPTS: ${{ fromJson(github.event.inputs.pipeline_config || '{"retry_attempts": 2}').retry_attempts }}
-  ESCAPE_ENABLED: ${{ fromJson(github.event.inputs.pipeline_config || '{"escape_enabled": true}').escape_enabled }}
+  PIPELINE_TIMEOUT: ${{ github.event.inputs.pipeline_config && fromJson(github.event.inputs.pipeline_config).timeout || 300 }}
+  RETRY_ATTEMPTS: ${{ github.event.inputs.pipeline_config && fromJson(github.event.inputs.pipeline_config).retry_attempts || 2 }}
+  ESCAPE_ENABLED: ${{ github.event.inputs.pipeline_config && fromJson(github.event.inputs.pipeline_config).escape_enabled || true }}
 
 jobs:
   # ================================

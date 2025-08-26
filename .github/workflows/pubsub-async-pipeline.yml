@@ -19,7 +19,7 @@ on:
 
 env:
   ACTION_ID: pipeline-${{ github.run_id }}-${{ github.run_attempt }}
-  MESSAGE_BROKER: ${{ fromJson(github.event.inputs.action_config || '{"message_broker": "redis"}').message_broker }}
+  MESSAGE_BROKER: ${{ github.event.inputs.action_config && fromJson(github.event.inputs.action_config).message_broker || 'redis' }}
   BROKER_URL: redis://127.0.0.1:6379
   FALLBACK_BROKER: file:///tmp/pipeline-messages
 
