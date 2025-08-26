@@ -46,11 +46,11 @@ public class AuthenticationClient {
      */
     public AuthenticationResponse authenticate(String username, String password) {
         if (!initialized) {
-            return new AuthenticationResponse(false, "Client not initialized", null, 0);
+            return new AuthenticationResponse(false, "Client not initialized", null, 0, false);
         }
         
         if (username == null || password == null || username.trim().isEmpty()) {
-            return new AuthenticationResponse(false, "Invalid credentials", null, 0);
+            return new AuthenticationResponse(false, "Invalid credentials", null, 0, false);
         }
         
         try {
@@ -61,12 +61,13 @@ public class AuthenticationClient {
                 result.isSuccess(),
                 result.getErrorMessage(),
                 result.getUser(),
-                result.getResponseTimeMs()
+                result.getResponseTimeMs(),
+                result.isCacheHit()
             );
             
         } catch (Exception e) {
             logger.error("Authentication failed for user: {}", username, e);
-            return new AuthenticationResponse(false, "Authentication service error", null, 0);
+            return new AuthenticationResponse(false, "Authentication service error", null, 0, false);
         }
     }
     
@@ -181,18 +182,25 @@ public class AuthenticationClient {
         private final String message;
         private final User user;
         private final long responseTimeMs;
+        private final boolean cacheHit;
         
         public AuthenticationResponse(boolean success, String message, User user, long responseTimeMs) {
+            this(success, message, user, responseTimeMs, false);
+        }
+        
+        public AuthenticationResponse(boolean success, String message, User user, long responseTimeMs, boolean cacheHit) {
             this.success = success;
             this.message = message;
             this.user = user;
             this.responseTimeMs = responseTimeMs;
+            this.cacheHit = cacheHit;
         }
         
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
         public User getUser() { return user; }
         public long getResponseTimeMs() { return responseTimeMs; }
+        public boolean isCacheHit() { return cacheHit; }
     }
     
     /**

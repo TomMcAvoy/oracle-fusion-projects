@@ -51,7 +51,7 @@ public class AuthCacheTestRunner {
     @PostConstruct
     public void initialize() {
         logger.info("🧪 Starting Authentication Cache Test Suite...");
-        logger.info("=" * 60);
+    logger.info("{}", "=".repeat(60));
         
         // Run tests asynchronously to avoid blocking startup
         CompletableFuture.runAsync(this::runAllTests, testExecutor);
@@ -269,12 +269,12 @@ public class AuthCacheTestRunner {
             logger.error("Error getting cache statistics", e);
         }
         
-        logger.info("=" * 60);
+    logger.info("{}", "=".repeat(60));
         logger.info("🎯 TEST SUITE COMPLETE!");
         logger.info("💡 Available for testing: 1000 users (testuser000-testuser999)");
         logger.info("🔑 Password pattern: TestPass{lastDigit}!");
         logger.info("📈 Multi-tier cache validated with enterprise performance!");
-        logger.info("=" * 60);
+    logger.info("{}", "=".repeat(60));
     }
     
     /**

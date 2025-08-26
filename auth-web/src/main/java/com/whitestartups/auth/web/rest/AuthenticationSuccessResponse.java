@@ -6,24 +6,34 @@ import com.whitestartups.auth.core.model.User;
  * Response object for successful authentication
  */
 public class AuthenticationSuccessResponse {
+    private boolean success = true;
     private String username;
     private String email;
     private String displayName;
     private String region;
     private long responseTimeMs;
     private long timestamp;
+    private boolean cacheHit;
+    private User user;
     
     public AuthenticationSuccessResponse() {
         this.timestamp = System.currentTimeMillis();
     }
     
     public AuthenticationSuccessResponse(User user, long responseTimeMs) {
+        this(user, responseTimeMs, false);
+    }
+    
+    public AuthenticationSuccessResponse(User user, long responseTimeMs, boolean cacheHit) {
+        this.success = true;
         this.username = user.getUsername();
         this.email = user.getEmail();
         this.displayName = user.getDisplayName();
         this.region = user.getRegion();
         this.responseTimeMs = responseTimeMs;
         this.timestamp = System.currentTimeMillis();
+        this.cacheHit = cacheHit;
+        this.user = user;
     }
     
     public String getUsername() {

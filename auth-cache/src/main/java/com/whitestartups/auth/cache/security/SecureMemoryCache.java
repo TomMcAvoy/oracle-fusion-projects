@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Unauthorized modification will result in system lockdown.
  */
 @ApplicationScoped
-public final class SecureMemoryCache {
+public class SecureMemoryCache {
     
     // Obfuscated logger - harder to trace in decompiled code
     private static final Logger $$log = LoggerFactory.getLogger("cache.sec.mem");

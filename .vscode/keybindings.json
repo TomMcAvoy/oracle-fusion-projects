@@ -35,3 +35,4 @@
     "when": "editorTextFocus"
   }
 ]
+mvn clean install

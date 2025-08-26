@@ -72,10 +72,10 @@ public class DistributedAuthCacheService {
                     logger.debug("Cache HIT authentication for user: {} in {}ms", 
                                username, responseTime);
                     
-                    return new AuthenticationResult(true, cachedUser.toUser(), responseTime);
+                    return new AuthenticationResult(true, cachedUser.toUser(), responseTime, null, true);
                 } else {
                     logger.debug("Cache HIT but invalid password for user: {}", username);
-                    return new AuthenticationResult(false, null, responseTime);
+                    return new AuthenticationResult(false, null, responseTime, null, true);
                 }
             }
             
@@ -86,7 +86,7 @@ public class DistributedAuthCacheService {
             if (user == null) {
                 long responseTime = System.currentTimeMillis() - startTime;
                 logger.debug("User not found: {} in {}ms", username, responseTime);
-                return new AuthenticationResult(false, null, responseTime);
+                return new AuthenticationResult(false, null, responseTime, null, false);
             }
             
             // Step 3: Verify password
@@ -103,17 +103,17 @@ public class DistributedAuthCacheService {
                 logger.debug("DB authentication successful for user: {} in {}ms", 
                            username, responseTime);
                 
-                return new AuthenticationResult(true, user, responseTime);
+                return new AuthenticationResult(true, user, responseTime, null, false);
             } else {
                 logger.debug("DB authentication failed for user: {} in {}ms", 
                            username, responseTime);
-                return new AuthenticationResult(false, null, responseTime);
+                return new AuthenticationResult(false, null, responseTime, null, false);
             }
             
         } catch (Exception e) {
             long responseTime = System.currentTimeMillis() - startTime;
             logger.error("Authentication error for user: {} in {}ms", username, responseTime, e);
-            return new AuthenticationResult(false, null, responseTime, e.getMessage());
+            return new AuthenticationResult(false, null, responseTime, e.getMessage(), false);
         }
     }
     
@@ -337,20 +337,27 @@ public class DistributedAuthCacheService {
      * Authentication result wrapper
      */
     public static class AuthenticationResult {
-        private final boolean success;
-        private final User user;
-        private final long responseTimeMs;
-        private final String errorMessage;
+    private final boolean success;
+    private final User user;
+    private final long responseTimeMs;
+    private final String errorMessage;
+    private final boolean cacheHit;
         
         public AuthenticationResult(boolean success, User user, long responseTimeMs) {
-            this(success, user, responseTimeMs, null);
+            this(success, user, responseTimeMs, null, false);
         }
         
         public AuthenticationResult(boolean success, User user, long responseTimeMs, String errorMessage) {
+            this(success, user, responseTimeMs, errorMessage, false);
+
+        }
+
+        public AuthenticationResult(boolean success, User user, long responseTimeMs, String errorMessage, boolean cacheHit) {
             this.success = success;
             this.user = user;
             this.responseTimeMs = responseTimeMs;
             this.errorMessage = errorMessage;
+            this.cacheHit = cacheHit;
         }
         
         // Getters
@@ -358,6 +365,7 @@ public class DistributedAuthCacheService {
         public User getUser() { return user; }
         public long getResponseTimeMs() { return responseTimeMs; }
         public String getErrorMessage() { return errorMessage; }
+    public boolean isCacheHit() { return cacheHit; }
     }
     
     /**

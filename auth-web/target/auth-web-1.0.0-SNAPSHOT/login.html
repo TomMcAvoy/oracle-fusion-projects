@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oracle Fusion Auth - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.8rem;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .test-users {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-users h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .test-users p {
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .test-users .highlight {
+            background: #fff3cd;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .stats {
+            margin-top: 1rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🔐 Oracle Fusion Auth</h1>
+            <p>Enterprise Authentication System</p>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="e.g. testuser123" autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="e.g. TestPass3!" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                🚀 Authenticate
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Authenticating...</p>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value" id="responseTime">--</div>
+                <div>Response Time (ms)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="cacheHit">--</div>
+                <div>Cache Status</div>
+            </div>
+        </div>
+
+        <div class="test-users">
+            <h3>🧪 Test Users Available</h3>
+            <p><strong>1000 Users:</strong> <span class="highlight">testuser000</span> to <span class="highlight">testuser999</span></p>
+            <p><strong>Password Pattern:</strong> <span class="highlight">TestPass{lastDigit}!</span></p>
+            <p><strong>Examples:</strong></p>
+            <p>• <code>testuser000</code> → <code>TestPass0!</code></p>
+            <p>• <code>testuser123</code> → <code>TestPass3!</code></p>
+            <p>• <code>testuser456</code> → <code>TestPass6!</code></p>
+            <p>• <code>testuser999</code> → <code>TestPass9!</code></p>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const loading = document.getElementById('loading');
+        const message = document.getElementById('message');
+        const stats = document.getElementById('stats');
+        const responseTimeSpan = document.getElementById('responseTime');
+        const cacheHitSpan = document.getElementById('cacheHit');
+
+        // Auto-fill with test user for convenience
+        document.getElementById('username').value = 'testuser123';
+        document.getElementById('password').value = 'TestPass3!';
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showMessage('Please enter both username and password', 'error');
+                return;
+            }
+
+            setLoading(true);
+            const startTime = Date.now();
+
+            try {
+                const response = await fetch('/auth-web/api/auth/authenticate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // For successful response, we get AuthenticationSuccessResponse
+                    showMessage(`✅ Authentication successful! Welcome ${result.displayName}`, 'success');
+                    updateStats(responseTime, result.cacheHit, result.user);
+                } else {
+                    // For error response, we get ErrorResponse
+                    showMessage(`❌ Authentication failed: ${result.message || 'Invalid credentials'}`, 'error');
+                    updateStats(responseTime, false);
+                }
+
+            } catch (error) {
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                console.error('Login error:', error);
+                showMessage(`🚨 Connection error: ${error.message}`, 'error');
+                updateStats(responseTime, false);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            loginBtn.disabled = isLoading;
+            loading.style.display = isLoading ? 'block' : 'none';
+            
+            if (isLoading) {
+                loginBtn.textContent = '🔄 Authenticating...';
+            } else {
+                loginBtn.textContent = '🚀 Authenticate';
+            }
+        }
+
+        function showMessage(text, type = 'info') {
+            message.innerHTML = text;
+            message.className = `message ${type}`;
+            message.style.display = 'block';
+
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    message.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function updateStats(responseTime, cacheHit, user = null) {
+            responseTimeSpan.textContent = responseTime;
+            cacheHitSpan.textContent = cacheHit ? 'HIT' : 'MISS';
+            cacheHitSpan.style.color = cacheHit ? '#28a745' : '#dc3545';
+            
+            stats.style.display = 'grid';
+
+            // Show additional user info if available
+            if (user) {
+                setTimeout(() => {
+                    showMessage(`👤 User: ${user.displayName} | 📧 ${user.email} | 🌍 ${user.region}`, 'info');
+                }, 2000);
+            }
+        }
+
+        // Quick test buttons functionality
+        document.addEventListener('keydown', (e) => {
+            // Alt + 1-9 to quick-fill test users
+            if (e.altKey && e.key >= '0' && e.key <= '9') {
+                e.preventDefault();
+                const userNum = e.key.padStart(3, '0');
+                document.getElementById('username').value = `testuser${userNum}`;
+                document.getElementById('password').value = `TestPass${e.key}!`;
+                showMessage(`🎯 Quick-filled: testuser${userNum} → TestPass${e.key}!`, 'info');
+            }
+        });
+
+        // Add keyboard shortcut info
+        setTimeout(() => {
+            showMessage('💡 Tip: Press Alt + 0-9 for quick test user selection', 'info');
+        }, 2000);
+    </script>
+</body>
+</html>

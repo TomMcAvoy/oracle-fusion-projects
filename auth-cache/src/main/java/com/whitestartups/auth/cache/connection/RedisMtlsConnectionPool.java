@@ -70,8 +70,6 @@ public class RedisMtlsConnectionPool extends MtlsConnectionPoolManager {
                     redisHost,
                     redisPort,
                     CONNECTION_TIMEOUT_MS,
-                    SOCKET_TIMEOUT_MS,
-                    0,  // database number
                     redisPassword,
                     true,  // SSL
                     sslSocketFactory,
@@ -88,7 +86,6 @@ public class RedisMtlsConnectionPool extends MtlsConnectionPoolManager {
                     redisHost,
                     redisPort,
                     CONNECTION_TIMEOUT_MS,
-                    SOCKET_TIMEOUT_MS,
                     redisPassword,
                     true  // SSL
                 );
@@ -102,7 +99,6 @@ public class RedisMtlsConnectionPool extends MtlsConnectionPoolManager {
                     redisHost,
                     redisPort,
                     CONNECTION_TIMEOUT_MS,
-                    SOCKET_TIMEOUT_MS,
                     redisPassword
                 );
                 

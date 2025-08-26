@@ -1,0 +1,255 @@
+# Async Producer - Publishes events and starts processing
+# This workflow triggers async processing and exits immediately (non-blocking)
+
+name: Async Producer Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      processing_job:
+        description: 'Type of processing job'
+        required: true
+        default: 'math_computation'
+        type: choice
+        options:
+          - math_computation
+          - data_processing  
+          - ml_training
+          - batch_processing
+      job_size:
+        description: 'Job size (iterations/records)'
+        required: false
+        default: '100'
+      priority:
+        description: 'Job priority'
+        required: false
+        default: 'normal'
+        type: choice
+        options:
+          - low
+          - normal
+          - high
+          - urgent
+      callback_enabled:
+        description: 'Enable GitHub callback when complete'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PRODUCER_ACTION_ID: producer-${{ github.run_id }}-${{ github.run_attempt }}
+  
+jobs:
+  # ================================
+  # ASYNC JOB PUBLISHER
+  # ================================
+  publish-async-job:
+    runs-on: self-hosted
+    outputs:
+      action-id: ${{ steps.publish.outputs.action-id }}
+      correlation-id: ${{ steps.publish.outputs.correlation-id }}
+      estimated-duration: ${{ steps.publish.outputs.estimated-duration }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Generate Job Metadata
+        id: metadata
+        run: |
+          CORRELATION_ID="corr-$(date +%s)-${{ github.run_id }}"
+          CALLBACK_ENDPOINT=""
+          
+          # Generate callback webhook if enabled
+          if [[ "${{ github.event.inputs.callback_enabled }}" == "true" ]]; then
+            # In real scenario, this would be a webhook endpoint that triggers repository_dispatch
+            CALLBACK_ENDPOINT="https://api.github.com/repos/${{ github.repository }}/dispatches"
+          fi
+          
+          # Estimate processing duration based on job size
+          JOB_SIZE="${{ github.event.inputs.job_size }}"
+          ESTIMATED_DURATION=$((JOB_SIZE / 10 + 30))  # Rough estimate: 10 ops/sec + 30s overhead
+          
+          echo "correlation-id=$CORRELATION_ID" >> $GITHUB_OUTPUT
+          echo "callback-endpoint=$CALLBACK_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "estimated-duration=${ESTIMATED_DURATION}s" >> $GITHUB_OUTPUT
+          
+          echo "📋 Job Metadata Generated:"
+          echo "  Correlation ID: $CORRELATION_ID"
+          echo "  Estimated Duration: ${ESTIMATED_DURATION}s"
+          echo "  Callback: $([[ -n "$CALLBACK_ENDPOINT" ]] && echo "Enabled" || echo "Disabled")"
+
+      - name: Publish Async Processing Job
+        id: publish
+        run: |
+          ACTION_ID="${{ env.PRODUCER_ACTION_ID }}"
+          CORRELATION_ID="${{ steps.metadata.outputs.correlation-id }}"
+          
+          # Create comprehensive job payload
+          JOB_PAYLOAD=$(jq -n \
+            --arg processing_job "${{ github.event.inputs.processing_job }}" \
+            --arg job_size "${{ github.event.inputs.job_size }}" \
+            --arg priority "${{ github.event.inputs.priority }}" \
+            --arg correlation_id "$CORRELATION_ID" \
+            --arg callback_enabled "${{ github.event.inputs.callback_enabled }}" \
+            --arg callback_endpoint "${{ steps.metadata.outputs.callback-endpoint }}" \
+            --arg repository "${{ github.repository }}" \
+            --arg workflow_run_id "${{ github.run_id }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg timestamp "$(date -Iseconds)" \
+            '{
+              processing_job: $processing_job,
+              job_size: ($job_size | tonumber),
+              priority: $priority,
+              correlation_id: $correlation_id,
+              callback_enabled: ($callback_enabled | test("true")),
+              callback_endpoint: $callback_endpoint,
+              github_context: {
+                repository: $repository,
+                workflow_run_id: $workflow_run_id,
+                actor: $actor,
+                ref: $ref,
+                sha: $sha,
+                triggered_at: $timestamp
+              }
+            }')
+          
+          echo "action-id=$ACTION_ID" >> $GITHUB_OUTPUT
+          echo "correlation-id=$CORRELATION_ID" >> $GITHUB_OUTPUT
+          echo "estimated-duration=${{ steps.metadata.outputs.estimated-duration }}" >> $GITHUB_OUTPUT
+          
+          echo "📤 Publishing async processing job..."
+          echo "🆔 Action ID: $ACTION_ID"
+          echo "📋 Payload:"
+          echo "$JOB_PAYLOAD" | jq '.'
+          
+          # Map processing job to appropriate event type
+          case "${{ github.event.inputs.processing_job }}" in
+            "math_computation")
+              EVENT_TYPE="math-requested"
+              # Transform to math-specific payload
+              MATH_PAYLOAD=$(echo "$JOB_PAYLOAD" | jq '.operation = "fibonacci" | .iterations = .job_size')
+              ./scripts/pubsub/publisher.sh "$ACTION_ID" "$EVENT_TYPE" "$MATH_PAYLOAD"
+              ;;
+            "data_processing")
+              EVENT_TYPE="data-processing-requested"
+              ./scripts/pubsub/publisher.sh "$ACTION_ID" "$EVENT_TYPE" "$JOB_PAYLOAD"
+              ;;
+            "ml_training")
+              EVENT_TYPE="ml-training-requested" 
+              ./scripts/pubsub/publisher.sh "$ACTION_ID" "$EVENT_TYPE" "$JOB_PAYLOAD"
+              ;;
+            "batch_processing")
+              EVENT_TYPE="batch-processing-requested"
+              ./scripts/pubsub/publisher.sh "$ACTION_ID" "$EVENT_TYPE" "$JOB_PAYLOAD"
+              ;;
+            *)
+              echo "❌ Unknown processing job type: ${{ github.event.inputs.processing_job }}"
+              exit 1
+              ;;
+          esac
+          
+          echo "✅ Job published successfully as: $EVENT_TYPE"
+
+      - name: Start Background Processors
+        run: |
+          ACTION_ID="${{ steps.publish.outputs.action-id }}"
+          
+          echo "🚀 Starting background processors for: $ACTION_ID"
+          
+          # Start appropriate subscriber based on job type
+          case "${{ github.event.inputs.processing_job }}" in
+            "math_computation")
+              echo "🧮 Starting math subscriber..."
+              nohup node ./scripts/pubsub/math-subscriber.js "$ACTION_ID" > "/tmp/math-subscriber-$ACTION_ID.log" 2>&1 &
+              echo $! > "/tmp/math-subscriber-$ACTION_ID.pid"
+              ;;
+            "data_processing")
+              echo "📊 Starting data processing subscriber..."
+              # nohup ./scripts/pubsub/data-subscriber.sh "$ACTION_ID" > "/tmp/data-subscriber-$ACTION_ID.log" 2>&1 &
+              echo "⚠️  Data processing subscriber not implemented yet"
+              ;;
+            "ml_training")
+              echo "🤖 Starting ML training subscriber..."
+              # nohup ./scripts/pubsub/ml-subscriber.py "$ACTION_ID" > "/tmp/ml-subscriber-$ACTION_ID.log" 2>&1 &
+              echo "⚠️  ML training subscriber not implemented yet"
+              ;;
+            "batch_processing")
+              echo "⚙️  Starting batch processing subscriber..."
+              # nohup ./scripts/pubsub/batch-subscriber.sh "$ACTION_ID" > "/tmp/batch-subscriber-$ACTION_ID.log" 2>&1 &  
+              echo "⚠️  Batch processing subscriber not implemented yet"
+              ;;
+          esac
+          
+          echo "📝 Background processors started. Logs available at: /tmp/*-subscriber-$ACTION_ID.log"
+
+      - name: Register Completion Monitor  
+        if: github.event.inputs.callback_enabled == 'true'
+        run: |
+          ACTION_ID="${{ steps.publish.outputs.action-id }}"
+          CORRELATION_ID="${{ steps.publish.outputs.correlation-id }}"
+          
+          echo "👁️  Registering completion monitor for callback..."
+          
+          # Start completion monitor that will trigger repository_dispatch
+          nohup ./scripts/pubsub/completion-monitor.sh \
+            "$ACTION_ID" \
+            "$CORRELATION_ID" \
+            "${{ github.repository }}" \
+            "${{ secrets.GITHUB_TOKEN }}" \
+            > "/tmp/completion-monitor-$ACTION_ID.log" 2>&1 &
+          
+          echo $! > "/tmp/completion-monitor-$ACTION_ID.pid"
+          echo "✅ Completion monitor registered with PID: $(cat /tmp/completion-monitor-$ACTION_ID.pid)"
+
+      - name: Producer Summary
+        run: |
+          ACTION_ID="${{ steps.publish.outputs.action-id }}"
+          CORRELATION_ID="${{ steps.publish.outputs.correlation-id }}"
+          ESTIMATED_DURATION="${{ steps.publish.outputs.estimated-duration }}"
+          
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🚀 Async Job Published Successfully
+          
+          ## 📋 Job Details
+          
+          | Attribute | Value |
+          |-----------|-------|
+          | **Action ID** | \`$ACTION_ID\` |
+          | **Correlation ID** | \`$CORRELATION_ID\` |
+          | **Processing Type** | \`${{ github.event.inputs.processing_job }}\` |
+          | **Job Size** | \`${{ github.event.inputs.job_size }}\` iterations |
+          | **Priority** | \`${{ github.event.inputs.priority }}\` |
+          | **Estimated Duration** | \`$ESTIMATED_DURATION\` |
+          | **Callback Enabled** | \`${{ github.event.inputs.callback_enabled }}\` |
+          
+          ## 🔄 What Happens Next
+          
+          1. ⚡ **Background Processing Started**: Your job is running asynchronously
+          2. 📊 **Outputs Being Streamed**: Real-time indexing to multiple datastores  
+          3. $([[ "${{ github.event.inputs.callback_enabled }}" == "true" ]] && echo "🔔 **GitHub Callback**: Consumer workflow will be triggered automatically when complete" || echo "⏳ **Manual Check**: Use consumer workflow to check results later")
+          
+          ## 🔍 Monitor Progress
+          
+          \`\`\`bash
+          # Check current status
+          ./scripts/pubsub/output-query-api.sh get-status "$ACTION_ID" "${{ github.event.inputs.processing_job }}"
+          
+          # Stream logs in real-time
+          ./scripts/pubsub/output-query-api.sh stream-logs "$ACTION_ID" "${{ github.event.inputs.processing_job }}"
+          
+          # Check background process logs
+          tail -f /tmp/*-subscriber-$ACTION_ID.log
+          \`\`\`
+          
+          ## 🎯 Next Step
+          
+          This workflow is now **complete and non-blocking**. The actual processing continues in the background.
+          $([[ "${{ github.event.inputs.callback_enabled }}" == "true" ]] && echo "The **Async Consumer** workflow will be automatically triggered when processing completes." || echo "Manually trigger the **Async Consumer** workflow later to retrieve results.")
+          
+          **Producer job finished in seconds, processing continues asynchronously! 🎉**
+          EOF
+          
+          echo "🎉 Producer workflow complete! Processing continues in background."
+          echo "🆔 Track with Action ID: $ACTION_ID"

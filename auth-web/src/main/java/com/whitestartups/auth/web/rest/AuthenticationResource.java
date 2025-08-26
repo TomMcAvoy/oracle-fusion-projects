@@ -52,7 +52,8 @@ public class AuthenticationResource {
             if (authResponse.isSuccess()) {
                 AuthenticationSuccessResponse response = new AuthenticationSuccessResponse(
                     authResponse.getUser(),
-                    authResponse.getResponseTimeMs()
+                    authResponse.getResponseTimeMs(),
+                    authResponse.isCacheHit()
                 );
                 
                 return Response.ok(response).build();

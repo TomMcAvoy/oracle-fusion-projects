@@ -278,7 +278,7 @@
             const startTime = Date.now();
 
             try {
-                const response = await fetch('/auth-web/api/auth/login', {
+                const response = await fetch('/auth-web/api/auth/authenticate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -295,9 +295,11 @@
                 const result = await response.json();
 
                 if (response.ok && result.success) {
-                    showMessage(`✅ Authentication successful! Welcome ${result.user.displayName}`, 'success');
+                    // For successful response, we get AuthenticationSuccessResponse
+                    showMessage(`✅ Authentication successful! Welcome ${result.displayName}`, 'success');
                     updateStats(responseTime, result.cacheHit, result.user);
                 } else {
+                    // For error response, we get ErrorResponse
                     showMessage(`❌ Authentication failed: ${result.message || 'Invalid credentials'}`, 'error');
                     updateStats(responseTime, false);
                 }

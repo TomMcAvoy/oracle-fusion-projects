@@ -8,7 +8,7 @@ ENABLE_TEST=${ENABLE_TEST:-true}
 
 cd "$(dirname "$0")/../../"
 while true; do
-  inotifywait -r -e modify,create,delete src/ || break
+  inotifywait -r -e modify,create,delete auth-*/src/ || break
   echo "[INFO] Detected code change. Rebuilding..."
   mvn install -DskipTests
   echo "[INFO] Build complete."

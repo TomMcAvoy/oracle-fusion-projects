@@ -1,0 +1,17 @@
+com/whitestartups/auth/web/rest/AuthenticationResource.class
+com/whitestartups/auth/web/servlet/EmailVerificationServlet.class
+com/whitestartups/auth/web/rest/UserResponse.class
+com/whitestartups/auth/web/rest/AuthenticationRequest.class
+com/whitestartups/auth/web/api/AuthenticationRestService$BulkLoginRequest.class
+com/whitestartups/auth/web/api/AuthenticationRestService$LoginRequest.class
+com/whitestartups/auth/web/servlet/LoginServlet.class
+com/whitestartups/auth/web/rest/AuthenticationSuccessResponse.class
+com/whitestartups/auth/web/rest/SessionValidationResponse.class
+com/whitestartups/auth/web/rest/SessionValidationRequest.class
+com/whitestartups/auth/web/servlet/RegisterServlet.class
+com/whitestartups/auth/web/servlet/LogoutServlet.class
+com/whitestartups/auth/web/servlet/PasswordResetServlet.class
+com/whitestartups/auth/web/api/AuthenticationRestService.class
+com/whitestartups/auth/web/rest/ErrorResponse.class
+com/whitestartups/auth/web/servlet/PasswordResetRequestServlet.class
+com/whitestartups/auth/web/config/RestApplication.class

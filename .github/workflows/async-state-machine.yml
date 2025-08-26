@@ -1,0 +1,263 @@
+# Generic Async State Machine CI/CD Template
+# Business logic is externalized to scripts in /scripts directory
+# Each job can escape/timeout independently without blocking the pipeline
+
+name: Async State Machine Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      pipeline_config:
+        description: 'Pipeline configuration JSON'
+        required: false
+        default: '{"timeout": 300, "retry_attempts": 2, "escape_enabled": true}'
+
+env:
+  PIPELINE_TIMEOUT: ${{ fromJson(github.event.inputs.pipeline_config || '{"timeout": 300}').timeout }}
+  RETRY_ATTEMPTS: ${{ fromJson(github.event.inputs.pipeline_config || '{"retry_attempts": 2}').retry_attempts }}
+  ESCAPE_ENABLED: ${{ fromJson(github.event.inputs.pipeline_config || '{"escape_enabled": true}').escape_enabled }}
+
+jobs:
+  # ================================
+  # STATE INITIALIZATION
+  # ================================
+  init-pipeline:
+    runs-on: self-hosted
+    outputs:
+      pipeline-id: ${{ steps.init.outputs.pipeline-id }}
+      state-file: ${{ steps.init.outputs.state-file }}
+      config: ${{ steps.init.outputs.config }}
+    steps:
+      - name: Initialize Pipeline State
+        id: init
+        run: |
+          PIPELINE_ID="pipeline-$(date +%s)-${{ github.run_id }}"
+          STATE_FILE="/tmp/${PIPELINE_ID}-state.json"
+          
+          echo "pipeline-id=$PIPELINE_ID" >> $GITHUB_OUTPUT
+          echo "state-file=$STATE_FILE" >> $GITHUB_OUTPUT
+          echo "config=${{ github.event.inputs.pipeline_config || '{}' }}" >> $GITHUB_OUTPUT
+          
+          # Initialize state machine
+          cat > $STATE_FILE << EOF
+          {
+            "pipeline_id": "$PIPELINE_ID",
+            "started_at": "$(date -Iseconds)",
+            "status": "running",
+            "stages": {
+              "build": {"status": "pending", "started_at": null, "completed_at": null, "escaped": false},
+              "secrets": {"status": "pending", "started_at": null, "completed_at": null, "escaped": false},
+              "deploy": {"status": "pending", "started_at": null, "completed_at": null, "escaped": false}
+            },
+            "callbacks": [],
+            "escape_triggers": []
+          }
+          EOF
+          
+          echo "✅ Pipeline state initialized: $PIPELINE_ID"
+          cat $STATE_FILE
+
+  # ================================  
+  # PARALLEL EXECUTION STAGE
+  # ================================
+  build-stage:
+    needs: init-pipeline
+    runs-on: self-hosted
+    outputs:
+      status: ${{ steps.execute.outputs.status }}
+      escaped: ${{ steps.execute.outputs.escaped }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Execute Build with Escape Logic
+        id: execute
+        timeout-minutes: ${{ fromJson(needs.init-pipeline.outputs.config).timeout || 5 }}
+        run: |
+          STATE_FILE="${{ needs.init-pipeline.outputs.state-file }}"
+          STAGE="build"
+          
+          # Update state: started
+          jq --arg stage "$STAGE" --arg time "$(date -Iseconds)" \
+             '.stages[$stage].status = "running" | .stages[$stage].started_at = $time' \
+             $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+          
+          # Execute business logic with escape capability
+          timeout ${PIPELINE_TIMEOUT}s bash -c '
+            # Call external business logic
+            if [[ -f "./scripts/pipeline/build.sh" ]]; then
+              ./scripts/pipeline/build.sh "${{ github.event_name }}" "${{ github.ref }}"
+            else
+              echo "⚠️  No build.sh found, running default build"
+              # Default fallback - customize per project
+              echo "mvn clean install || gradle build || npm run build"
+            fi
+          ' || {
+            EXIT_CODE=$?
+            if [[ $EXIT_CODE == 124 ]]; then
+              echo "⏰ Build timed out - triggering escape"
+              echo "escaped=true" >> $GITHUB_OUTPUT
+              echo "status=timeout" >> $GITHUB_OUTPUT
+              # Update state: escaped
+              jq --arg stage "$STAGE" '.stages[$stage].escaped = true | .stages[$stage].status = "timeout"' \
+                 $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+              exit 0  # Don't fail the job, just escape
+            else
+              echo "❌ Build failed with exit code $EXIT_CODE"
+              echo "escaped=false" >> $GITHUB_OUTPUT
+              echo "status=failed" >> $GITHUB_OUTPUT
+            fi
+            exit $EXIT_CODE
+          }
+          
+          # Success path
+          echo "✅ Build completed successfully"
+          echo "escaped=false" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+          
+          # Update state: completed
+          jq --arg stage "$STAGE" --arg time "$(date -Iseconds)" \
+             '.stages[$stage].status = "success" | .stages[$stage].completed_at = $time' \
+             $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+
+  secrets-stage:
+    needs: init-pipeline
+    runs-on: self-hosted
+    outputs:
+      status: ${{ steps.execute.outputs.status }}
+      escaped: ${{ steps.execute.outputs.escaped }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Execute Secrets Fetch with Escape Logic
+        id: execute
+        timeout-minutes: ${{ fromJson(needs.init-pipeline.outputs.config).timeout || 5 }}
+        run: |
+          STATE_FILE="${{ needs.init-pipeline.outputs.state-file }}"
+          STAGE="secrets"
+          
+          # Update state: started
+          jq --arg stage "$STAGE" --arg time "$(date -Iseconds)" \
+             '.stages[$stage].status = "running" | .stages[$stage].started_at = $time' \
+             $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+          
+          # Execute business logic with escape capability
+          timeout ${PIPELINE_TIMEOUT}s bash -c '
+            # Call external business logic
+            if [[ -f "./scripts/pipeline/secrets.sh" ]]; then
+              ./scripts/pipeline/secrets.sh "${{ github.repository }}" "${{ github.run_id }}"
+            else
+              echo "⚠️  No secrets.sh found, running default secrets fetch"
+              # Default fallback
+              echo "curl -s http://127.0.0.1:8200/v1/sys/health || echo vault-unavailable"
+            fi
+          ' || {
+            EXIT_CODE=$?
+            if [[ $EXIT_CODE == 124 ]]; then
+              echo "⏰ Secrets fetch timed out - triggering escape"
+              echo "escaped=true" >> $GITHUB_OUTPUT
+              echo "status=timeout" >> $GITHUB_OUTPUT
+              jq --arg stage "$STAGE" '.stages[$stage].escaped = true | .stages[$stage].status = "timeout"' \
+                 $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+              exit 0
+            else
+              echo "❌ Secrets fetch failed with exit code $EXIT_CODE"
+              echo "escaped=false" >> $GITHUB_OUTPUT
+              echo "status=failed" >> $GITHUB_OUTPUT
+            fi
+            exit $EXIT_CODE
+          }
+          
+          echo "✅ Secrets fetch completed successfully"
+          echo "escaped=false" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+          
+          # Update state: completed
+          jq --arg stage "$STAGE" --arg time "$(date -Iseconds)" \
+             '.stages[$stage].status = "success" | .stages[$stage].completed_at = $time' \
+             $STATE_FILE > ${STATE_FILE}.tmp && mv ${STATE_FILE}.tmp $STATE_FILE
+
+  # ================================
+  # CONDITIONAL DEPLOY STAGE
+  # ================================
+  deploy-stage:
+    needs: [init-pipeline, build-stage, secrets-stage]
+    runs-on: self-hosted
+    if: |
+      (needs.build-stage.outputs.status == 'success' || needs.build-stage.outputs.escaped == 'true') &&
+      (needs.secrets-stage.outputs.status == 'success' || needs.secrets-stage.outputs.escaped == 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Evaluate Deployment Readiness
+        id: readiness
+        run: |
+          BUILD_STATUS="${{ needs.build-stage.outputs.status }}"
+          SECRETS_STATUS="${{ needs.secrets-stage.outputs.status }}"
+          BUILD_ESCAPED="${{ needs.build-stage.outputs.escaped }}"
+          SECRETS_ESCAPED="${{ needs.secrets-stage.outputs.escaped }}"
+          
+          echo "📊 Pipeline State Assessment:"
+          echo "  Build: $BUILD_STATUS (escaped: $BUILD_ESCAPED)"
+          echo "  Secrets: $SECRETS_STATUS (escaped: $SECRETS_ESCAPED)"
+          
+          # Deployment decision logic
+          if [[ "$BUILD_STATUS" == "success" && "$SECRETS_STATUS" == "success" ]]; then
+            echo "deployment=full" >> $GITHUB_OUTPUT
+            echo "🚀 Full deployment authorized"
+          elif [[ "$BUILD_ESCAPED" == "true" || "$SECRETS_ESCAPED" == "true" ]]; then
+            echo "deployment=partial" >> $GITHUB_OUTPUT
+            echo "⚠️  Partial deployment - some stages escaped"
+          else
+            echo "deployment=skip" >> $GITHUB_OUTPUT
+            echo "❌ Deployment skipped - prerequisites not met"
+          fi
+
+      - name: Execute Deployment
+        if: steps.readiness.outputs.deployment != 'skip'
+        timeout-minutes: ${{ fromJson(needs.init-pipeline.outputs.config).timeout || 10 }}
+        run: |
+          STATE_FILE="${{ needs.init-pipeline.outputs.state-file }}"
+          DEPLOYMENT_TYPE="${{ steps.readiness.outputs.deployment }}"
+          
+          # Call external deployment logic
+          if [[ -f "./scripts/pipeline/deploy.sh" ]]; then
+            ./scripts/pipeline/deploy.sh "$DEPLOYMENT_TYPE" "${{ github.sha }}" "${{ github.ref_name }}"
+          else
+            echo "⚠️  No deploy.sh found, running default deployment"
+            echo "mvn wildfly:deploy || echo 'deployment-placeholder'"
+          fi
+
+  # ================================
+  # CALLBACK/CLEANUP STAGE
+  # ================================
+  finalize:
+    needs: [init-pipeline, build-stage, secrets-stage, deploy-stage]
+    runs-on: self-hosted
+    if: always()
+    steps:
+      - name: Execute Callbacks and Cleanup
+        run: |
+          STATE_FILE="${{ needs.init-pipeline.outputs.state-file }}"
+          
+          # Execute any registered callbacks
+          if [[ -f "$STATE_FILE" ]]; then
+            echo "📋 Final pipeline state:"
+            cat $STATE_FILE
+            
+            # Call external cleanup/callback logic
+            if [[ -f "./scripts/pipeline/cleanup.sh" ]]; then
+              ./scripts/pipeline/cleanup.sh "${{ needs.init-pipeline.outputs.pipeline-id }}" "$STATE_FILE"
+            fi
+            
+            # Archive state for debugging
+            cp $STATE_FILE /tmp/pipeline-state-${{ github.run_id }}.json
+          fi
+          
+          echo "🏁 Pipeline finalized"

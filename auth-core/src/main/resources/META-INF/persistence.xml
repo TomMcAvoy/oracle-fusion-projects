@@ -6,7 +6,7 @@
 
     <persistence-unit name="authPU" transaction-type="JTA">
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
-        <jta-data-source>java:jboss/datasources/AuthDS</jta-data-source>
+        <jta-data-source>java:jboss/datasources/ExampleDS</jta-data-source>
         
         <!-- Entity classes -->
         <class>com.whitestartups.auth.core.model.User</class>

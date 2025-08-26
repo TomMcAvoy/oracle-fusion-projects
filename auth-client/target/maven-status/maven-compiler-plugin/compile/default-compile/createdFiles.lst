@@ -1,0 +1,7 @@
+com/whitestartups/auth/client/BatchAuthenticationRequest$Credential.class
+com/whitestartups/auth/client/AuthenticationClient.class
+com/whitestartups/auth/client/AuthenticationClient$ServiceStatistics.class
+com/whitestartups/auth/client/BatchAuthenticationRequest.class
+com/whitestartups/auth/client/AuthenticationClient$AuthenticationResponse.class
+com/whitestartups/auth/client/BatchAuthenticationResponse.class
+com/whitestartups/auth/client/BatchAuthenticationResponse$BatchSummary.class

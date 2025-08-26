@@ -1,0 +1,15 @@
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/UserResponse.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/PasswordResetServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/LogoutServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/PasswordResetRequestServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/config/RestApplication.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/AuthenticationSuccessResponse.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/SessionValidationRequest.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/RegisterServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/SessionValidationResponse.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/api/AuthenticationRestService.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/EmailVerificationServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/AuthenticationResource.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/servlet/LoginServlet.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/ErrorResponse.java
+/home/tom/GitHub/oracle-fusion-projects/auth-web/src/main/java/com/whitestartups/auth/web/rest/AuthenticationRequest.java
