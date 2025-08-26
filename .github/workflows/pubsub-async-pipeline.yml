@@ -6,12 +6,18 @@
 name: Pub/Sub Async State Machine
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
     inputs:
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'true'
+        type: boolean
+      max_iterations:
+        description: 'Maximum iterations'
+        required: false
+        default: '10'
+        type: string
       action_config:
         description: 'Action configuration JSON'
         required: false

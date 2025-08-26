@@ -5,12 +5,18 @@
 name: Async State Machine Pipeline
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
   workflow_dispatch:
     inputs:
+      stage:
+        description: 'Pipeline stage to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - event-publisher
+        - secrets-subscriber
+        - build-subscriber
       pipeline_config:
         description: 'Pipeline configuration JSON'
         required: false

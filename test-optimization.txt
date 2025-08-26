@@ -1,0 +1,11 @@
+GitHub Actions Queue Optimization Test
+======================================
+
+Testing if only CI/CD workflow triggers on push after optimization.
+
+Expected behavior:
+- Only ci-cd.yml should auto-trigger on push
+- All other workflows converted to manual dispatch
+- No queue congestion with single runner
+
+Test timestamp: $(date)
