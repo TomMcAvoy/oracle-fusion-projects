@@ -1,0 +1,19 @@
+name: Test Validation Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_param:
+        description: 'Test parameter'
+        required: true
+
+jobs:
+  test-job:
+    runs-on: self-hosted
+    steps:
+      - name: Test Step
+        run: |
+          echo "Testing validation workflow"
+          echo "Parameter: ${{ github.event.inputs.test_param }}"
+          # This is intentionally broken YAML - missing quote
+          echo "This should fail validation: ${{ github.event.inputs.test_param }

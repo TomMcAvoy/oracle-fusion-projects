@@ -49,6 +49,7 @@ jobs:
   consume-results:
     needs: circuit-breaker
     runs-on: self-hosted
+    timeout-minutes: 15
     if: needs.circuit-breaker.outputs.should-proceed == 'true'
     steps:
       - name: Checkout
@@ -218,6 +219,15 @@ jobs:
           fi
           echo ""
           echo "✅ Smart consumption logic prevented waste of resources!"
+          
+      - name: Cleanup on Cancel
+        if: cancelled()
+        run: |
+          echo "🛑 CONSUMER WORKFLOW CANCELLED"
+          echo "🧹 Cleaning up any partial consumption..."
+          # Stop any background processes
+          pkill -f "consume" 2>/dev/null || true
+          echo "✅ Consumer cleanup completed"
 
   circuit-breaker-terminated:
     needs: circuit-breaker
