@@ -1,0 +1,21 @@
+# Test Recognition Workflow v1.0.0
+# Version: 1.0.0
+# Purpose: Force GitHub to recognize workflows
+
+name: Test Recognition v1.0.0
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Test workflow recognition
+      run: |
+        echo "✅ GitHub recognized versioned workflow v1.0.0"
+        echo "This confirms our versioning system works!"
+        echo "Version: 1.0.0"
