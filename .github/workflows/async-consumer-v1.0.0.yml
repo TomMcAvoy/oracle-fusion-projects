@@ -1,6 +1,8 @@
 name: Async Consumer with Circuit Breaker
 
 on:
+  push:
+    branches: [ master ]
   repository_dispatch:
     types: [async_job_completed, fibonacci-job-completed]
   workflow_dispatch:
