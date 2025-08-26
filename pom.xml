@@ -194,6 +194,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <phase>validate</phase>
@@ -225,6 +226,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <phase>validate</phase>
@@ -252,6 +254,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <phase>validate</phase>
@@ -283,6 +286,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <phase>validate</phase>
