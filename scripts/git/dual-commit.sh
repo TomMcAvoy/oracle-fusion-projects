@@ -16,7 +16,7 @@ NC='\033[0m'
 # Configuration
 GITHUB_REMOTE="origin"
 GITLAB_REMOTE="gitlab"
-DEFAULT_BRANCH="main"
+DEFAULT_BRANCH=$(git rev-parse --abbrev-ref HEAD)  # Use current branch
 
 echo -e "${BOLD}${BLUE}🔄 DUAL PLATFORM GIT COMMIT${NC}"
 echo -e "${BOLD}${BLUE}===========================${NC}"
