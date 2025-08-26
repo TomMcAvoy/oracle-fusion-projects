@@ -54,4 +54,7 @@ build/
 # Security: Secrets and tokens directory
 .secrets/
 !.secrets/.gitignore
-!.secrets/README.md
+!.secrets/README.md# Vault-generated files with sensitive data
+.env.vault
+**/*vault-test-credentials.js
+**/vault-*.env

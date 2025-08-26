@@ -1,0 +1,131 @@
+version: '3.8'
+
+# Secure Docker Compose using Vault-managed credentials
+# Usage: docker-compose --env-file ../../.env.vault -f docker-compose.vault.yml up -d
+
+services:
+  # OpenLDAP Server - Credentials from Vault
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: oracle-fusion-ldap-vault
+    hostname: ldap.whitestartups.com
+    ports:
+      - "389:389"   # LDAP port
+      - "636:636"   # LDAPS port
+    environment:
+      # Base DN and Organization
+      LDAP_ORGANISATION: "White Startups Inc"
+      LDAP_DOMAIN: "whitestartups.com"
+      LDAP_BASE_DN: "dc=whitestartups,dc=com"
+      
+      # Admin credentials from Vault
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD}"
+      LDAP_CONFIG_PASSWORD: "${LDAP_CONFIG_PASSWORD}"
+      
+      # Security settings
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "false"
+      LDAP_BACKEND: "mdb"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "ldap.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap.key" 
+      LDAP_TLS_DH_PARAM_FILENAME: "dhparam.pem"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+      LDAP_TLS_ENFORCE: "false"
+      LDAP_TLS_CIPHER_SUITE: "SECURE256:-VERS-SSL3.0"
+      LDAP_TLS_PROTOCOL_MIN: "3.1"
+      LDAP_TLS_VERIFY_CLIENT: "demand"
+      LDAP_REPLICATION: "false"
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+      LDAP_SSL_HELPER_PREFIX: "ldap"
+      
+      # Logging
+      LDAP_LOG_LEVEL: "256"
+      
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      - ./ldap/certs:/container/service/slapd/assets/certs/
+      - ./ldap/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    networks:
+      - auth-network
+    restart: unless-stopped
+    command: --copy-service
+
+  # LDAP Admin Web UI (phpLDAPadmin)
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: oracle-fusion-ldap-admin-vault
+    hostname: ldap-admin.whitestartups.com
+    ports:
+      - "8080:80"   # Web admin interface
+      - "8443:443"  # HTTPS admin interface  
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    depends_on:
+      - openldap
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+  # Redis Cache (L2) - Credentials from Vault
+  redis:
+    image: redis:7.2-alpine
+    container_name: oracle-fusion-redis-vault
+    hostname: redis.whitestartups.com
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB Cache (L3) - Credentials from Vault  
+  mongodb:
+    image: mongo:7.0
+    container_name: oracle-fusion-mongodb-vault
+    hostname: mongodb.whitestartups.com
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: authcache
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ldap_data:
+    driver: local
+  ldap_config:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  auth-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,153 @@
+version: '3.8'
+
+# Docker Compose with Vault-managed certificates
+# All TLS certificates retrieved from Vault in real-time
+
+services:
+  # Vault-enabled OpenLDAP with dynamic TLS certificates
+  ldap-vault-secure:
+    image: osixia/openldap:1.5.0
+    container_name: ldap-vault-secure
+    hostname: ldap.whitestartups.com
+    ports:
+      - "389:389"
+      - "636:636"
+    environment:
+      LDAP_ORGANISATION: "White Startups Inc"
+      LDAP_DOMAIN: "whitestartups.com"
+      LDAP_BASE_DN: "dc=whitestartups,dc=com"
+      LDAP_ADMIN_PASSWORD_FILE: /run/secrets/ldap_admin_password
+      LDAP_CONFIG_PASSWORD_FILE: /run/secrets/ldap_config_password
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "false"
+      LDAP_BACKEND: "mdb"
+      LDAP_TLS: "true"
+      LDAP_TLS_ENFORCE: "true"
+      # TLS certificates mounted from Vault retrieval
+      LDAP_TLS_CRT_FILENAME: "ldap-server.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap-server.key" 
+      LDAP_TLS_DH_PARAM_FILENAME: "dhparam.pem"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+      LDAP_LOG_LEVEL: "256"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      - ../../ldap/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
+      # Mount directory for Vault-retrieved certificates
+      - vault_ldap_certs:/container/service/slapd/assets/certs
+    secrets:
+      - ldap_admin_password
+      - ldap_config_password
+    depends_on:
+      - vault-cert-init
+    restart: unless-stopped
+
+  # Redis with Vault password
+  redis-vault:
+    image: redis:7.2-alpine
+    container_name: redis-vault
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass $(cat /run/secrets/redis_password)
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # MongoDB with Vault TLS certificates
+  mongodb-vault:
+    image: mongo:7.0
+    container_name: mongodb-vault
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/mongo_root_username
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+    secrets:
+      - mongo_root_username
+      - mongo_root_password
+    volumes:
+      - mongodb_data:/data/db
+      # Mount directory for Vault-retrieved certificates
+      - vault_mongodb_certs:/etc/ssl/mongodb
+      - ./mongodb-vault.conf:/etc/mongod.conf
+    command: mongod --config /etc/mongod.conf
+    depends_on:
+      - vault-cert-init
+    restart: unless-stopped
+
+  # Certificate initialization service - retrieves certs from Vault
+  vault-cert-init:
+    image: vault:latest
+    container_name: vault-cert-init
+    environment:
+      VAULT_ADDR: http://dev-vault:8200
+      VAULT_TOKEN: root
+    volumes:
+      - vault_ldap_certs:/certs/ldap
+      - vault_mongodb_certs:/certs/mongodb
+      - ../../scripts/vault:/scripts
+    command: >
+      sh -c "
+        echo '🔐 Retrieving certificates from Vault...';
+        /scripts/vault-cert-manager.sh retrieve mongodb ca_crt /certs/mongodb/ca.crt;
+        /scripts/vault-cert-manager.sh retrieve mongodb server_pem /certs/mongodb/mongodb-server.pem;
+        /scripts/vault-cert-manager.sh retrieve ldap ca_crt /certs/ldap/ca.crt;
+        /scripts/vault-cert-manager.sh retrieve ldap server_crt /certs/ldap/ldap-server.crt;
+        /scripts/vault-cert-manager.sh retrieve ldap server_key /certs/ldap/ldap-server.key;
+        echo '✅ All certificates retrieved from Vault';
+      "
+    depends_on:
+      - dev-vault
+    restart: "no"
+
+  # Development Vault (from existing setup)
+  dev-vault:
+    image: vault:latest
+    container_name: dev-vault
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault_data:/vault/data
+    restart: unless-stopped
+
+# Docker secrets from files (populated by vault-credential-manager.sh)
+secrets:
+  ldap_admin_password:
+    file: ../../.env.vault.d/ldap_admin_password
+  ldap_config_password:
+    file: ../../.env.vault.d/ldap_config_password
+  redis_password:
+    file: ../../.env.vault.d/redis_password
+  mongo_root_username:
+    file: ../../.env.vault.d/mongo_root_username
+  mongo_root_password:
+    file: ../../.env.vault.d/mongo_root_password
+
+volumes:
+  ldap_data:
+    driver: local
+  ldap_config:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  vault_data:
+    driver: local
+  vault_ldap_certs:
+    driver: local
+  vault_mongodb_certs:
+    driver: local
+
+networks:
+  default:
+    name: vault-auth-network
+    driver: bridge
