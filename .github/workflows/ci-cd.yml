@@ -27,13 +27,7 @@ jobs:
       - name: Build with Maven
         run: mvn clean install
 
-  - name: Fetch secrets from Vault (OIDC)
-      - name: Debug after Vault fetch
-        run: |
-          echo "== ENVIRONMENT AFTER VAULT FETCH =="
-          env
-          ps aux
-          curl -v http://127.0.0.1:8200/v1/sys/health || echo "Vault not reachable"
+      - name: Fetch secrets from Vault (OIDC)
         uses: hashicorp/vault-action@v2
         with:
           url: http://127.0.0.1:8200
@@ -42,6 +36,13 @@ jobs:
           secrets: |
             secret/data/wildfly WILDFLY_USER | WILDFLY_USER;
             secret/data/wildfly WILDFLY_PASS | WILDFLY_PASS;
+
+      - name: Debug after Vault fetch
+        run: |
+          echo "== ENVIRONMENT AFTER VAULT FETCH =="
+          env
+          ps aux
+          curl -v http://127.0.0.1:8200/v1/sys/health || echo "Vault not reachable"
 
       - name: Deploy to WildFly
         run: mvn wildfly:deploy
