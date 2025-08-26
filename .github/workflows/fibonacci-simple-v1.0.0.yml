@@ -106,6 +106,8 @@ jobs:
           echo "🎯 Result: GitHub Actions is now NON-BLOCKING for Fibonacci! 🚀"
           
       - name: Auto-Trigger Consumer via Repository Dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo ""
           echo "🔔 AUTO-TRIGGERING CONSUMER VIA REPOSITORY DISPATCH"
