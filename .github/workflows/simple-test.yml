@@ -10,7 +10,7 @@ on:
 
 jobs:
   simple-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - name: Simple Test Step

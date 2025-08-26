@@ -34,7 +34,7 @@ jobs:
   # PUBLISHER: Initialize and Publish Events
   # ================================
   event-publisher:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       action-id: ${{ steps.init.outputs.action-id }}
       broker-type: ${{ steps.init.outputs.broker-type }}
@@ -78,7 +78,7 @@ jobs:
   # ================================
   build-subscriber:
     needs: event-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
   # ================================
   secrets-subscriber:
     needs: event-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,7 +129,7 @@ jobs:
   # ================================
   deploy-subscriber:
     needs: [event-publisher, build-subscriber, secrets-subscriber]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()  # Always run to check for completion events
     steps:
       - name: Checkout
@@ -156,7 +156,7 @@ jobs:
   # ================================
   output-retrieval:
     needs: [event-publisher, build-subscriber, secrets-subscriber]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()  # Always run to retrieve outputs regardless of job status
     steps:
       - name: Checkout
@@ -259,7 +259,7 @@ jobs:
   # ================================
   stream-outputs:
     needs: [event-publisher, build-subscriber]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: contains(github.event.inputs.action_config, 'stream_enabled')
     steps:
       - name: Stream Build Outputs in Real-Time
@@ -290,7 +290,7 @@ jobs:
   # ================================
   cleanup-subscriber:
     needs: [event-publisher, build-subscriber, secrets-subscriber, deploy-subscriber, output-retrieval]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Subscribe and Execute Cleanup

@@ -48,7 +48,7 @@ jobs:
   # ASYNC JOB PUBLISHER
   # ================================
   publish-async-job:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       action-id: ${{ steps.publish.outputs.action-id }}
       correlation-id: ${{ steps.publish.outputs.correlation-id }}

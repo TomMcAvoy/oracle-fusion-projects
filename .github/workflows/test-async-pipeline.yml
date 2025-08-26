@@ -38,7 +38,7 @@ jobs:
   # TEST PUBLISHER
   # ================================
   test-publisher:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       action-id: ${{ steps.init.outputs.action-id }}
       correlation-id: ${{ steps.init.outputs.correlation-id }}
@@ -102,7 +102,7 @@ jobs:
   # ================================
   math-test-subscriber:
     needs: test-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,7 +154,7 @@ jobs:
   # ================================
   escape-test:
     needs: test-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.event.inputs.test_scenario == 'escape_test'
     steps:
       - name: Checkout
@@ -195,7 +195,7 @@ jobs:
   # ================================
   validate-outputs:
     needs: [test-publisher, math-test-subscriber]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Checkout
@@ -282,7 +282,7 @@ jobs:
   # ================================
   generate-test-report:
     needs: [test-publisher, math-test-subscriber, validate-outputs]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Generate Comprehensive Test Report
@@ -408,7 +408,7 @@ jobs:
   # TEST PUBLISHER
   # ================================
   test-publisher:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       action-id: ${{ steps.init.outputs.action-id }}
       correlation-id: ${{ steps.init.outputs.correlation-id }}
@@ -472,7 +472,7 @@ jobs:
   # ================================
   math-test-subscriber:
     needs: test-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -524,7 +524,7 @@ jobs:
   # ================================
   escape-test:
     needs: test-publisher
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.event.inputs.test_scenario == 'escape_test'
     steps:
       - name: Checkout
@@ -565,7 +565,7 @@ jobs:
   # ================================
   validate-outputs:
     needs: [test-publisher, math-test-subscriber]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Checkout
@@ -652,7 +652,7 @@ jobs:
   # ================================
   generate-test-report:
     needs: [test-publisher, math-test-subscriber, validate-outputs]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Generate Comprehensive Test Report

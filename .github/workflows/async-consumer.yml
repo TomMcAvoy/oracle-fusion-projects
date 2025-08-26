@@ -16,7 +16,7 @@ on:
 
 jobs:
   circuit-breaker:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       should-proceed: ${{ steps.circuit-check.outputs.should-proceed }}
       circuit-reason: ${{ steps.circuit-check.outputs.reason }}
@@ -48,7 +48,7 @@ jobs:
 
   consume-results:
     needs: circuit-breaker
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     if: needs.circuit-breaker.outputs.should-proceed == 'true'
     steps:
@@ -231,7 +231,7 @@ jobs:
 
   circuit-breaker-terminated:
     needs: circuit-breaker
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: needs.circuit-breaker.outputs.should-proceed == 'false'
     steps:
       - name: Circuit Breaker Termination
@@ -250,7 +250,7 @@ jobs:
 
   summary:
     needs: [circuit-breaker, consume-results]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Workflow Summary
