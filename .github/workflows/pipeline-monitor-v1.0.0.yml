@@ -1,0 +1,365 @@
+name: Pipeline Monitor v1.0.0
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:
+    inputs:
+      detailed_report:
+        description: 'Generate detailed report'
+        required: false
+        default: false
+        type: boolean
+      max_pipelines:
+        description: 'Maximum pipelines to monitor'
+        required: false
+        default: '20'
+        type: string
+
+jobs:
+  pipeline-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Gather Pipeline Data
+        id: gather-data
+        run: |
+          echo "📊 PIPELINE MONITORING DASHBOARD"
+          echo "================================"
+          echo ""
+          
+          MAX_PIPELINES=${{ github.event.inputs.max_pipelines || '20' }}
+          DETAILED_REPORT=${{ github.event.inputs.detailed_report || 'false' }}
+          
+          echo "📋 Configuration:"
+          echo "  Max Pipelines: $MAX_PIPELINES"
+          echo "  Detailed Report: $DETAILED_REPORT"
+          echo ""
+          
+          # Get recent workflow runs
+          echo "🔍 Gathering workflow run data..."
+          
+          RECENT_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+            --paginate \
+            --jq ".workflow_runs[:$MAX_PIPELINES] | map({
+              id: .id,
+              name: .name,
+              status: .status,
+              conclusion: .conclusion,
+              event: .event,
+              created_at: .created_at,
+              updated_at: .updated_at,
+              actor: .actor.login,
+              head_sha: .head_sha[:7],
+              html_url: .html_url
+            })"
+          )
+          
+          echo "$RECENT_RUNS" > /tmp/recent_runs.json
+          
+          # Count by status
+          COMPLETED_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.status == "completed")] | length')
+          IN_PROGRESS_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.status == "in_progress")] | length') 
+          QUEUED_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.status == "queued")] | length')
+          
+          # Count by conclusion 
+          SUCCESS_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.conclusion == "success")] | length')
+          FAILURE_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.conclusion == "failure")] | length')
+          CANCELLED_COUNT=$(echo "$RECENT_RUNS" | jq '[.[] | select(.conclusion == "cancelled")] | length')
+          
+          echo "completed-count=$COMPLETED_COUNT" >> $GITHUB_OUTPUT
+          echo "in-progress-count=$IN_PROGRESS_COUNT" >> $GITHUB_OUTPUT
+          echo "queued-count=$QUEUED_COUNT" >> $GITHUB_OUTPUT
+          echo "success-count=$SUCCESS_COUNT" >> $GITHUB_OUTPUT
+          echo "failure-count=$FAILURE_COUNT" >> $GITHUB_OUTPUT
+          echo "cancelled-count=$CANCELLED_COUNT" >> $GITHUB_OUTPUT
+          
+          echo "✅ Pipeline data gathered"
+          
+      - name: Analyze Pipeline Health
+        id: analyze-health
+        run: |
+          echo "🏥 PIPELINE HEALTH ANALYSIS"
+          echo "=========================="
+          
+          COMPLETED=${{ steps.gather-data.outputs.completed-count }}
+          IN_PROGRESS=${{ steps.gather-data.outputs.in-progress-count }}
+          QUEUED=${{ steps.gather-data.outputs.queued-count }}
+          SUCCESS=${{ steps.gather-data.outputs.success-count }}
+          FAILURE=${{ steps.gather-data.outputs.failure-count }}
+          CANCELLED=${{ steps.gather-data.outputs.cancelled-count }}
+          
+          TOTAL=$((COMPLETED + IN_PROGRESS + QUEUED))
+          
+          echo "📊 Pipeline Statistics:"
+          echo "  Total Runs: $TOTAL"
+          echo "  ✅ Completed: $COMPLETED"
+          echo "  ⏳ In Progress: $IN_PROGRESS"  
+          echo "  🕐 Queued: $QUEUED"
+          echo ""
+          echo "📋 Results:"
+          echo "  ✅ Success: $SUCCESS"
+          echo "  ❌ Failure: $FAILURE"
+          echo "  🚫 Cancelled: $CANCELLED"
+          echo ""
+          
+          # Calculate health metrics
+          if [[ $COMPLETED -gt 0 ]]; then
+            SUCCESS_RATE=$(( (SUCCESS * 100) / COMPLETED ))
+            FAILURE_RATE=$(( (FAILURE * 100) / COMPLETED ))
+          else
+            SUCCESS_RATE=0
+            FAILURE_RATE=0
+          fi
+          
+          echo "📈 Health Metrics:"
+          echo "  Success Rate: ${SUCCESS_RATE}%"
+          echo "  Failure Rate: ${FAILURE_RATE}%"
+          echo ""
+          
+          # Determine health status
+          if [[ $FAILURE_RATE -eq 0 && $SUCCESS_RATE -gt 80 ]]; then
+            HEALTH_STATUS="excellent"
+            HEALTH_EMOJI="🟢"
+          elif [[ $FAILURE_RATE -lt 20 && $SUCCESS_RATE -gt 60 ]]; then
+            HEALTH_STATUS="good"
+            HEALTH_EMOJI="🟡"
+          elif [[ $FAILURE_RATE -lt 50 ]]; then
+            HEALTH_STATUS="fair"
+            HEALTH_EMOJI="🟠"
+          else
+            HEALTH_STATUS="poor"
+            HEALTH_EMOJI="🔴"
+          fi
+          
+          echo "health-status=$HEALTH_STATUS" >> $GITHUB_OUTPUT
+          echo "health-emoji=$HEALTH_EMOJI" >> $GITHUB_OUTPUT
+          echo "success-rate=$SUCCESS_RATE" >> $GITHUB_OUTPUT
+          echo "failure-rate=$FAILURE_RATE" >> $GITHUB_OUTPUT
+          
+          echo "$HEALTH_EMOJI Pipeline Health: $HEALTH_STATUS"
+          echo ""
+
+      - name: Generate Dashboard Report
+        run: |
+          echo "📊 PIPELINE DASHBOARD REPORT"
+          echo "==========================="
+          
+          TIMESTAMP=$(date -Iseconds)
+          HEALTH_STATUS="${{ steps.analyze-health.outputs.health-status }}"
+          HEALTH_EMOJI="${{ steps.analyze-health.outputs.health-emoji }}"
+          SUCCESS_RATE="${{ steps.analyze-health.outputs.success-rate }}"
+          FAILURE_RATE="${{ steps.analyze-health.outputs.failure-rate }}"
+          
+          # Create dashboard HTML report
+          DASHBOARD_HTML=$(cat <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Pipeline Dashboard - ${{ github.repository }}</title>
+            <meta http-equiv="refresh" content="300">
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+              .container { max-width: 1200px; margin: 0 auto; }
+              .header { background: #24292e; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+              .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+              .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+              .stat-value { font-size: 2em; font-weight: bold; margin: 10px 0; }
+              .health-excellent { color: #28a745; }
+              .health-good { color: #ffc107; }
+              .health-fair { color: #fd7e14; }
+              .health-poor { color: #dc3545; }
+              .workflow-list { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              .workflow-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+              .workflow-item:last-child { border-bottom: none; }
+              .status-success { color: #28a745; }
+              .status-failure { color: #dc3545; }
+              .status-pending { color: #ffc107; }
+              .footer { text-align: center; margin-top: 20px; color: #666; }
+              .refresh-note { background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>$HEALTH_EMOJI Pipeline Dashboard</h1>
+                <p><strong>${{ github.repository }}</strong> - Generated: $TIMESTAMP</p>
+                <p>Overall Health: <span class="health-$HEALTH_STATUS">$HEALTH_STATUS</span></p>
+              </div>
+              
+              <div class="stats">
+                <div class="stat-card">
+                  <div class="stat-value">${{ steps.gather-data.outputs.success-count }}</div>
+                  <div>✅ Successful</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value">${{ steps.gather-data.outputs.failure-count }}</div>
+                  <div>❌ Failed</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value">${{ steps.gather-data.outputs.in-progress-count }}</div>
+                  <div>⏳ Running</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-value">${SUCCESS_RATE}%</div>
+                  <div>Success Rate</div>
+                </div>
+              </div>
+              
+              <div class="workflow-list">
+                <h2>Recent Pipeline Activity</h2>
+                <div id="workflow-runs">
+                  <!-- Workflow runs will be populated here -->
+                </div>
+              </div>
+              
+              <div class="footer">
+                <p>Pipeline Dashboard v1.0.0 - Auto-refreshes every 5 minutes</p>
+                <div class="refresh-note">
+                  <strong>Last Updated:</strong> $TIMESTAMP<br>
+                  <strong>Next Update:</strong> $(date -d "+5 minutes" -Iseconds)
+                </div>
+              </div>
+            </div>
+          </body>
+          </html>
+          EOF
+          )
+          
+          # Save dashboard HTML
+          echo "$DASHBOARD_HTML" > pipeline-dashboard.html
+          echo "✅ Dashboard HTML generated"
+          
+          # Create text report
+          TEXT_REPORT=$(cat <<EOF
+          # 📊 Pipeline Monitoring Report
+          
+          **Repository:** ${{ github.repository }}  
+          **Generated:** $TIMESTAMP  
+          **Health Status:** $HEALTH_EMOJI $HEALTH_STATUS  
+          
+          ## 📈 Statistics
+          
+          - ✅ **Successful Runs:** ${{ steps.gather-data.outputs.success-count }}
+          - ❌ **Failed Runs:** ${{ steps.gather-data.outputs.failure-count }}
+          - 🚫 **Cancelled Runs:** ${{ steps.gather-data.outputs.cancelled-count }}
+          - ⏳ **Currently Running:** ${{ steps.gather-data.outputs.in-progress-count }}
+          - 🕐 **Queued:** ${{ steps.gather-data.outputs.queued-count }}
+          
+          ## 🏥 Health Metrics
+          
+          - **Success Rate:** ${SUCCESS_RATE}%
+          - **Failure Rate:** ${FAILURE_RATE}%
+          - **Overall Health:** $HEALTH_STATUS
+          
+          ## 🔗 Quick Links
+          
+          - [View All Workflows](https://github.com/${{ github.repository }}/actions)
+          - [Pipeline Settings](https://github.com/${{ github.repository }}/settings/actions)
+          - [Current Dashboard Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          ---
+          *Generated by Pipeline Monitor v1.0.0*
+          EOF
+          )
+          
+          echo "$TEXT_REPORT" > pipeline-report.md
+          echo "✅ Text report generated"
+          
+      - name: Display Recent Workflows
+        run: |
+          echo "🔍 RECENT PIPELINE ACTIVITY"
+          echo "==========================="
+          
+          echo "📋 Last 10 Workflow Runs:"
+          echo ""
+          
+          # Display recent runs in a nice format
+          jq -r '.[:10] | .[] | 
+            "\(.name) - \(.status)/\(.conclusion // "null") - \(.actor) - \(.created_at) - \(.html_url)"' \
+            /tmp/recent_runs.json | while IFS=' - ' read -r name status actor created url; do
+            
+            case "$status" in
+              "completed/success") STATUS_EMOJI="✅" ;;
+              "completed/failure") STATUS_EMOJI="❌" ;;
+              "completed/cancelled") STATUS_EMOJI="🚫" ;;
+              "in_progress/null") STATUS_EMOJI="⏳" ;;
+              "queued/null") STATUS_EMOJI="🕐" ;;
+              *) STATUS_EMOJI="❓" ;;
+            esac
+            
+            echo "$STATUS_EMOJI $name ($status) by $actor"
+            echo "   🕐 $created"
+            echo "   🔗 $url"
+            echo ""
+          done
+          
+      - name: Alert on Health Issues
+        run: |
+          echo "🚨 HEALTH MONITORING & ALERTS"
+          echo "============================="
+          
+          HEALTH_STATUS="${{ steps.analyze-health.outputs.health-status }}"
+          FAILURE_RATE="${{ steps.analyze-health.outputs.failure-rate }}"
+          
+          if [[ "$HEALTH_STATUS" == "poor" ]] || [[ $FAILURE_RATE -gt 50 ]]; then
+            echo "🔴 HIGH ALERT: Pipeline health is poor!"
+            echo "   Failure Rate: ${FAILURE_RATE}%"
+            echo "   Immediate attention required"
+            
+            # Could send notifications here
+            echo "📧 Alert notifications would be sent here"
+            
+          elif [[ "$HEALTH_STATUS" == "fair" ]] || [[ $FAILURE_RATE -gt 20 ]]; then
+            echo "🟠 MEDIUM ALERT: Pipeline health needs attention"
+            echo "   Failure Rate: ${FAILURE_RATE}%"
+            echo "   Consider investigating recent failures"
+            
+          else
+            echo "🟢 HEALTHY: Pipeline is operating normally"
+            echo "   Success Rate: ${{ steps.analyze-health.outputs.success-rate }}%"
+            echo "   No alerts needed"
+          fi
+          
+      - name: Update Monitoring Summary
+        run: |
+          echo "📝 MONITORING SUMMARY UPDATE"
+          echo "==========================="
+          
+          # Create monitoring summary
+          SUMMARY=$(cat <<EOF
+          {
+            "timestamp": "$(date -Iseconds)",
+            "health_status": "${{ steps.analyze-health.outputs.health-status }}",
+            "success_rate": ${{ steps.analyze-health.outputs.success-rate }},
+            "failure_rate": ${{ steps.analyze-health.outputs.failure-rate }},
+            "total_runs_monitored": $(( ${{ steps.gather-data.outputs.completed-count }} + ${{ steps.gather-data.outputs.in-progress-count }} + ${{ steps.gather-data.outputs.queued-count }} )),
+            "successful_runs": ${{ steps.gather-data.outputs.success-count }},
+            "failed_runs": ${{ steps.gather-data.outputs.failure-count }},
+            "in_progress_runs": ${{ steps.gather-data.outputs.in-progress-count }},
+            "monitoring_run_id": "${{ github.run_id }}"
+          }
+          EOF
+          )
+          
+          echo "$SUMMARY" > .github/monitoring-summary.json
+          echo "✅ Monitoring summary updated"
+          
+          echo ""
+          echo "🎉 PIPELINE MONITORING COMPLETE!"
+          echo "================================"
+          echo ""
+          echo "📊 Generated Reports:"
+          echo "  📄 pipeline-dashboard.html (HTML dashboard)"  
+          echo "  📝 pipeline-report.md (Markdown report)"
+          echo "  📈 .github/monitoring-summary.json (JSON summary)"
+          echo ""
+          echo "🔗 Access Points:"
+          echo "  📊 GitHub Actions: https://github.com/${{ github.repository }}/actions"
+          echo "  📋 This Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          echo "⏰ Next monitoring run: Every 5 minutes (scheduled)"
+          echo "🔧 Manual runs: Available via workflow_dispatch"
+          echo ""

@@ -104,6 +104,58 @@ jobs:
           echo "  Check logs: /tmp/fibonacci-fibonacci-producer-${{ github.run_id }}.log"
           echo ""
           echo "🎯 Result: GitHub Actions is now NON-BLOCKING for Fibonacci! 🚀"
+          
+      - name: Auto-Trigger Consumer via Repository Dispatch
+        run: |
+          echo ""
+          echo "🔔 AUTO-TRIGGERING CONSUMER VIA REPOSITORY DISPATCH"
+          echo "================================================="
+          
+          ACTION_ID="fibonacci-producer-${{ github.run_id }}"
+          
+          # Create repository dispatch payload for consumer
+          CONSUMER_PAYLOAD=$(jq -n \
+            --arg action_id "$ACTION_ID" \
+            --arg producer_run_id "${{ github.run_id }}" \
+            --arg producer_status "completed" \
+            --arg iterations "${{ github.event.inputs.iterations }}" \
+            --arg trigger_time "$(date -Iseconds)" \
+            --arg producer_actor "${{ github.actor }}" \
+            '{
+              event_type: "fibonacci_job_completed",
+              client_payload: {
+                action_id: $action_id,
+                producer_run_id: $producer_run_id,
+                producer_status: $producer_status,
+                iterations: $iterations,
+                trigger_time: $trigger_time,
+                producer_actor: $producer_actor,
+                auto_triggered: true,
+                pipeline_phase: "background_processing_ready"
+              }
+            }'
+          )
+          
+          echo "📤 Repository dispatch payload:"
+          echo "$CONSUMER_PAYLOAD" | jq .
+          echo ""
+          
+          # Send repository_dispatch event to trigger consumer
+          if echo "$CONSUMER_PAYLOAD" | gh api repos/${{ github.repository }}/dispatches \
+            --method POST \
+            --input -; then
+            echo "✅ Consumer auto-trigger dispatched successfully!"
+            echo "🎯 Consumer should start automatically in ~30 seconds"
+            echo "📋 Event type: fibonacci_job_completed"
+            echo "🔗 Action ID: $ACTION_ID"
+          else
+            echo "❌ Failed to dispatch consumer auto-trigger"
+            echo "🔧 Manual consumer trigger may be needed"
+          fi
+          
+          echo ""
+          echo "🎉 COMPLETE ASYNC PIPELINE INITIATED!"
+          echo "Producer → Repository Dispatch → Consumer"
 
   circuit-breaker-demo:
     runs-on: ubuntu-latest
