@@ -1,0 +1,25 @@
+name: Simple Test Process
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Test message'
+        required: false
+        default: 'Hello World'
+
+jobs:
+  simple-test:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Simple Test Step
+        run: |
+          echo "🧪 TESTING WORKFLOW PROCESS"
+          echo "=========================="
+          echo "Message: ${{ github.event.inputs.message }}"
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
+          echo ""
+          echo "✅ Simple test completed successfully!"
