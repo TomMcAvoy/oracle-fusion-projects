@@ -26,6 +26,13 @@
         <mockito.version>5.3.1</mockito.version>
         <slf4j.version>2.0.7</slf4j.version>
         <logback.version>1.4.8</logback.version>
+        
+        <!-- WildFly Async Configuration -->
+        <job.type>full_build_deploy</job.type>
+        <target.environment>development</target.environment>
+        <priority>normal</priority>
+        <skip.tests>false</skip.tests>
+        <skip.build>false</skip.build>
     </properties>
 
     <modules>
