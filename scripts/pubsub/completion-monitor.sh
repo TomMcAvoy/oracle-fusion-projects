@@ -27,6 +27,8 @@ MAX_WAIT_TIME=1800  # 30 minutes max
 CHECK_INTERVAL=10   # Check every 10 seconds
 COMPLETION_PATTERNS=(
     "math-completed:$ACTION_ID"
+    "fibonacci-completed:$ACTION_ID"  # Fibonacci completion events
+    "fibonacci-failed:$ACTION_ID"     # Fibonacci failure events  
     "math-escaped:$ACTION_ID"
     "math-failed:$ACTION_ID"
     "data-processing-completed:$ACTION_ID"
@@ -130,16 +132,23 @@ trigger_github_callback() {
     local status="$1"
     local payload="$2"
     
-    echo "🔔 Triggering GitHub repository_dispatch..." | tee -a "$MONITOR_LOG"
+    # Get callback type and circuit breaker data from command line arguments
+    CALLBACK_TYPE="${5:-async_job_completed}"
+    CIRCUIT_BREAKER_DATA="${6:-{}}"
     
-    # Create repository_dispatch payload
+    echo "🔔 Triggering GitHub repository_dispatch..." | tee -a "$MONITOR_LOG"
+    echo "📋 Event type: $CALLBACK_TYPE" | tee -a "$MONITOR_LOG"
+    
+    # Create repository_dispatch payload with circuit breaker protection
     local dispatch_payload=$(jq -n \
-        --arg event_type "async_job_completed" \
+        --arg event_type "$CALLBACK_TYPE" \
         --arg action_id "$ACTION_ID" \
         --arg correlation_id "$CORRELATION_ID" \
         --arg status "$status" \
         --arg completion_time "$(date -Iseconds)" \
+        --arg monitor_pid "$$" \
         --argjson result_payload "$payload" \
+        --argjson circuit_data "$CIRCUIT_BREAKER_DATA" \
         '{
           event_type: $event_type,
           client_payload: {
@@ -147,14 +156,16 @@ trigger_github_callback() {
             correlation_id: $correlation_id,
             status: $status,
             completion_time: $completion_time,
-            result_payload: $result_payload
+            monitor_process_id: $monitor_pid,
+            result_payload: $result_payload,
+            circuit_breaker: $circuit_data
           }
         }')
     
     echo "📤 Dispatch payload:" | tee -a "$MONITOR_LOG"
     echo "$dispatch_payload" | jq '.' | tee -a "$MONITOR_LOG"
     
-    # Send repository_dispatch using GitHub API
+    # Send repository_dispatch using GitHub API with circuit breaker metadata
     if curl -X POST \
         -H "Authorization: token $GITHUB_TOKEN" \
         -H "Accept: application/vnd.github.v3+json" \
@@ -162,6 +173,7 @@ trigger_github_callback() {
         -d "$dispatch_payload" 2>&1 | tee -a "$MONITOR_LOG"; then
         
         echo "✅ GitHub repository_dispatch sent successfully!" | tee -a "$MONITOR_LOG"
+        echo "🔒 Circuit breaker metadata included for loop prevention" | tee -a "$MONITOR_LOG"
         return 0
     else
         echo "❌ Failed to send repository_dispatch" | tee -a "$MONITOR_LOG"

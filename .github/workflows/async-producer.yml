@@ -6,20 +6,24 @@ name: Async Producer Pipeline
 on:
   workflow_dispatch:
     inputs:
-      processing_job:
-        description: 'Type of processing job'
+      fibonacci_type:
+        description: 'Type of Fibonacci computation'
         required: true
-        default: 'math_computation'
+        default: 'standard'
         type: choice
         options:
-          - math_computation
-          - data_processing  
-          - ml_training
-          - batch_processing
-      job_size:
-        description: 'Job size (iterations/records)'
+          - standard
+          - optimized
+          - parallel
+          - stress_test
+      iterations:
+        description: 'Number of Fibonacci iterations'
         required: false
         default: '100'
+      batch_size:
+        description: 'Batch size for processing'
+        required: false
+        default: '10'
       priority:
         description: 'Job priority'
         required: false
@@ -152,37 +156,26 @@ jobs:
           
           echo "✅ Job published successfully as: $EVENT_TYPE"
 
-      - name: Start Background Processors
+      - name: Start Fibonacci Background Processor
         run: |
           ACTION_ID="${{ steps.publish.outputs.action-id }}"
           
-          echo "🚀 Starting background processors for: $ACTION_ID"
+          echo "🧮 Starting Fibonacci background processor for: $ACTION_ID"
+          echo "📊 Configuration:"
+          echo "  Type: ${{ github.event.inputs.fibonacci_type }}"
+          echo "  Iterations: ${{ github.event.inputs.iterations }}"
+          echo "  Batch Size: ${{ github.event.inputs.batch_size }}"
           
-          # Start appropriate subscriber based on job type
-          case "${{ github.event.inputs.processing_job }}" in
-            "math_computation")
-              echo "🧮 Starting math subscriber..."
-              nohup node ./scripts/pubsub/math-subscriber.js "$ACTION_ID" > "/tmp/math-subscriber-$ACTION_ID.log" 2>&1 &
-              echo $! > "/tmp/math-subscriber-$ACTION_ID.pid"
-              ;;
-            "data_processing")
-              echo "📊 Starting data processing subscriber..."
-              # nohup ./scripts/pubsub/data-subscriber.sh "$ACTION_ID" > "/tmp/data-subscriber-$ACTION_ID.log" 2>&1 &
-              echo "⚠️  Data processing subscriber not implemented yet"
-              ;;
-            "ml_training")
-              echo "🤖 Starting ML training subscriber..."
-              # nohup ./scripts/pubsub/ml-subscriber.py "$ACTION_ID" > "/tmp/ml-subscriber-$ACTION_ID.log" 2>&1 &
-              echo "⚠️  ML training subscriber not implemented yet"
-              ;;
-            "batch_processing")
-              echo "⚙️  Starting batch processing subscriber..."
-              # nohup ./scripts/pubsub/batch-subscriber.sh "$ACTION_ID" > "/tmp/batch-subscriber-$ACTION_ID.log" 2>&1 &  
-              echo "⚠️  Batch processing subscriber not implemented yet"
-              ;;
-          esac
+          # Start Fibonacci subscriber
+          nohup node ./scripts/pubsub/math-subscriber.js "$ACTION_ID" \
+            > "/tmp/fibonacci-subscriber-$ACTION_ID.log" 2>&1 &
           
-          echo "📝 Background processors started. Logs available at: /tmp/*-subscriber-$ACTION_ID.log"
+          SUBSCRIBER_PID=$!
+          echo $SUBSCRIBER_PID > "/tmp/fibonacci-subscriber-$ACTION_ID.pid"
+          
+          echo "✅ Fibonacci subscriber started with PID: $SUBSCRIBER_PID"
+          echo "📄 Logs: /tmp/fibonacci-subscriber-$ACTION_ID.log"
+          echo "🔄 Processing will continue independently in background..."
 
       - name: Register Completion Monitor  
         if: github.event.inputs.callback_enabled == 'true'

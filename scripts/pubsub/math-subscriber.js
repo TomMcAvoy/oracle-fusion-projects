@@ -15,9 +15,10 @@ const SUBSCRIBER_ID = `math-subscriber-${process.pid}`;
 
 console.log(`🧮 Math subscriber starting for action: ${ACTION_ID}`);
 
-// Subscription patterns
+// Subscription patterns - Listen for math/fibonacci-related events  
 const SUBSCRIBE_PATTERNS = [
     `math-requested:${ACTION_ID}`,
+    `fibonacci-requested:${ACTION_ID}`,  // Support Fibonacci computation jobs
     `math-retry:${ACTION_ID}`,
     `test-requested:${ACTION_ID}`
 ];
@@ -39,6 +40,7 @@ function processMathMessage(message) {
         
         switch (eventType) {
             case 'math-requested':
+            case 'fibonacci-requested':  // Handle Fibonacci requests
             case 'test-requested':
             case 'math-retry':
                 return executeMathAction(payload);

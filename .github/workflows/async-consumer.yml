@@ -5,7 +5,7 @@ name: Async Consumer Pipeline
 
 on:
   repository_dispatch:
-    types: [async_job_completed]
+    types: [async_job_completed, fibonacci-job-completed]
   workflow_dispatch:
     inputs:
       action_id:
@@ -16,6 +16,11 @@ on:
         required: false
       force_consume:
         description: 'Force consumption even if job not complete'
+        required: false
+        default: false
+        type: boolean
+      skip_circuit_breaker:
+        description: 'Skip circuit breaker (dangerous!)'
         required: false
         default: false
         type: boolean

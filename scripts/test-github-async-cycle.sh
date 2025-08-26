@@ -88,7 +88,7 @@ deploy_workflows() {
     
     # Check if workflow files exist
     local workflow_files=(
-        ".github/workflows/async-producer.yml"
+        ".github/workflows/fibonacci-producer.yml"
         ".github/workflows/async-consumer.yml"  
         ".github/workflows/test-async-feedback-loop.yml"
     )
@@ -150,10 +150,10 @@ Test ID: $TEST_ID" || echo "⚠️  No changes to commit"
     sleep 10
     
     echo "🔍 Verifying workflows are available..."
-    if gh workflow list | grep -q "Async Producer Pipeline"; then
-        echo "✅ Async Producer Pipeline detected"
+    if gh workflow list | grep -q "Fibonacci Producer Pipeline"; then
+        echo "✅ Fibonacci Producer Pipeline detected"
     else
-        echo "⚠️  Async Producer Pipeline not yet visible"
+        echo "⚠️  Fibonacci Producer Pipeline not yet visible"
     fi
     
     if gh workflow list | grep -q "Async Consumer Pipeline"; then
@@ -204,8 +204,8 @@ trigger_producer() {
     # Get the latest run ID
     echo "🔍 Finding workflow run..."
     local run_id=""
-    if run_id=$(gh run list --workflow=async-producer.yml --limit=1 --json databaseId --jq '.[0].databaseId' 2>/dev/null); then
-        echo "✅ Producer workflow run ID: $run_id"
+    if run_id=$(gh run list --workflow=fibonacci-producer.yml --limit=1 --json databaseId --jq '.[0].databaseId' 2>/dev/null); then
+        echo "✅ Fibonacci producer workflow run ID: $run_id"
         echo "🌐 View at: https://github.com/$REPO_NAME/actions/runs/$run_id"
     else
         echo "⚠️  Could not determine run ID, continuing with monitoring..."
@@ -226,7 +226,7 @@ monitor_producer() {
     
     while [[ $elapsed -lt $max_wait ]]; do
         # Get latest producer run status
-        if producer_status=$(gh run list --workflow=async-producer.yml --limit=1 --json status,conclusion --jq '.[0] | "\(.status):\(.conclusion)"' 2>/dev/null); then
+        if producer_status=$(gh run list --workflow=fibonacci-producer.yml --limit=1 --json status,conclusion --jq '.[0] | "\(.status):\(.conclusion)"' 2>/dev/null); then
             
             case "$producer_status" in
                 "completed:success")
@@ -395,12 +395,12 @@ display_results() {
     echo ""
     
     # Producer runs
-    echo "🚀 Producer Workflow Runs:"
-    if gh run list --workflow=async-producer.yml --limit=3 --json databaseId,status,conclusion,createdAt,displayTitle | \
+    echo "🧮 Fibonacci Producer Workflow Runs:"
+    if gh run list --workflow=fibonacci-producer.yml --limit=3 --json databaseId,status,conclusion,createdAt,displayTitle | \
        jq -r '.[] | "   Run \(.databaseId): \(.status)/\(.conclusion) - \(.displayTitle) (\(.createdAt))"' 2>/dev/null; then
         echo ""
     else
-        echo "   ⚠️  Could not retrieve producer runs"
+        echo "   ⚠️  Could not retrieve Fibonacci producer runs"
         echo ""
     fi
     
@@ -416,7 +416,7 @@ display_results() {
     
     # Direct links
     echo "🌐 Direct Links:"
-    echo "   Producer Workflows: https://github.com/$REPO_NAME/actions/workflows/async-producer.yml"
+    echo "   Fibonacci Producer: https://github.com/$REPO_NAME/actions/workflows/fibonacci-producer.yml"
     echo "   Consumer Workflows: https://github.com/$REPO_NAME/actions/workflows/async-consumer.yml"
     echo "   All Actions: https://github.com/$REPO_NAME/actions"
     echo ""
@@ -428,7 +428,7 @@ display_results() {
     local producer_runs=""
     local consumer_runs=""
     
-    producer_runs=$(gh run list --workflow=async-producer.yml --limit=1 --json status,conclusion 2>/dev/null | jq -r '.[0] | "\(.status):\(.conclusion)"' 2>/dev/null || echo "none")
+    producer_runs=$(gh run list --workflow=fibonacci-producer.yml --limit=1 --json status,conclusion 2>/dev/null | jq -r '.[0] | "\(.status):\(.conclusion)"' 2>/dev/null || echo "none")
     consumer_runs=$(gh run list --workflow=async-consumer.yml --limit=1 --json status,conclusion,event 2>/dev/null | jq -r '.[0] | "\(.status):\(.conclusion):\(.event)"' 2>/dev/null || echo "none")
     
     case "$producer_runs" in

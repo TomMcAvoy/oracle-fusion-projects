@@ -1,0 +1,12 @@
+{
+  "name": "oracle-fusion-async-pipeline",
+  "version": "1.0.0",
+  "description": "Async pipeline system for Oracle Fusion authentication",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["async", "pipeline", "github-actions"],
+  "author": "Oracle Fusion Team",
+  "license": "MIT"
+}

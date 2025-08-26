@@ -219,12 +219,28 @@ jobs:
           
           echo "👁️  Registering completion monitor for callback..."
           
+          # Add circuit breaker info to completion monitor
+          CIRCUIT_BREAKER_DATA=$(jq -n \
+            --arg producer_run_id "${{ github.run_id }}" \
+            --arg producer_timestamp "$(date -Iseconds)" \
+            --arg workflow_actor "${{ github.actor }}" \
+            '{
+              producer_run_id: $producer_run_id,
+              producer_timestamp: $producer_timestamp,
+              workflow_actor: $workflow_actor,
+              callback_type: "fibonacci-job-completed"
+            }')
+          
+          echo "🔒 Circuit breaker data: $CIRCUIT_BREAKER_DATA"
+          
           # Start completion monitor that will trigger repository_dispatch
           nohup ./scripts/pubsub/completion-monitor.sh \
             "$ACTION_ID" \
             "$CORRELATION_ID" \
             "${{ github.repository }}" \
             "${{ secrets.GITHUB_TOKEN }}" \
+            "fibonacci-job-completed" \
+            "$CIRCUIT_BREAKER_DATA" \
             > "/tmp/completion-monitor-$ACTION_ID.log" 2>&1 &
           
           echo $! > "/tmp/completion-monitor-$ACTION_ID.pid"
